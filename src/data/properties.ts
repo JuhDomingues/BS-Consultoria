@@ -129,3 +129,8 @@ export async function getRecentProperties(): Promise<Property[]> {
   const properties = await getAllProperties();
   return properties.slice(0, 8);
 }
+
+// Get sobrados (houses)
+export async function getSobrados(): Promise<Property[]> {
+  return getPropertiesByType('Sobrado');
+}

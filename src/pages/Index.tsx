@@ -7,7 +7,8 @@ import Footer from "@/components/Footer";
 import {
   getAllProperties,
   getExclusiveProperties,
-  getFeaturedProperties
+  getFeaturedProperties,
+  getSobrados
 } from "@/data/properties";
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { Property } from "@/utils/parsePropertyData";
@@ -16,6 +17,7 @@ const Index = () => {
   const [allProperties, setAllProperties] = useState<Property[]>([]);
   const [exclusiveProperties, setExclusiveProperties] = useState<Property[]>([]);
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+  const [sobrados, setSobrados] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load properties from Baserow on mount
@@ -24,15 +26,17 @@ const Index = () => {
       try {
         setLoading(true);
 
-        const [all, exclusive, featured] = await Promise.all([
+        const [all, exclusive, featured, houses] = await Promise.all([
           getAllProperties(),
           getExclusiveProperties(),
           getFeaturedProperties(),
+          getSobrados(),
         ]);
 
         setAllProperties(all);
         setExclusiveProperties(exclusive);
         setFeaturedProperties(featured);
+        setSobrados(houses);
       } catch (error) {
         console.error('Error loading properties:', error);
       } finally {
@@ -123,6 +127,9 @@ const Index = () => {
               )}
               {featuredProperties.length > 0 && (
                 <PropertyCarousel title="Destaques" properties={featuredProperties} />
+              )}
+              {sobrados.length > 0 && (
+                <PropertyCarousel title="Sobrados Disponíveis" properties={sobrados} />
               )}
             </>
           )}
