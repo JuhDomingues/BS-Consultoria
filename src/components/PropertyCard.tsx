@@ -1,41 +1,49 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Bed, Bath, Square, Eye } from "lucide-react";
+import { Property } from "@/utils/parsePropertyData";
+import { useNavigate } from "react-router-dom";
 
-interface PropertyCardProps {
-  id: string;
-  title: string;
-  location: string;
-  price: string;
-  image: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  area?: number;
-  type: string;
-  category: string;
-  isExclusive?: boolean;
-}
+type PropertyCardProps = Property;
 
 const PropertyCard = ({
+  id,
   title,
   location,
   price,
-  image,
+  images,
   bedrooms,
   bathrooms,
   area,
   type,
   category,
   isExclusive = false,
+  description,
+  features,
 }: PropertyCardProps) => {
+  const navigate = useNavigate();
+  const primaryImage = images && images.length > 0 ? images[0] : '/property-1.jpg';
+
+  const handleCardClick = () => {
+    navigate(`/imovel/${id}`);
+  };
+
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/imovel/${id}`);
+  };
   return (
-    <div className="property-card group min-w-[300px] cursor-pointer">
+    <div className="property-card group min-w-[300px] cursor-pointer" onClick={handleCardClick}>
       {/* Image Container */}
       <div className="relative h-48 overflow-hidden">
         <img
-          src={image}
+          src={primaryImage}
           alt={title}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = '/property-1.jpg';
+          }}
         />
         <div className="absolute inset-0 overlay-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
@@ -56,7 +64,11 @@ const PropertyCard = ({
 
         {/* Hover Actions */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <Button variant="outline" className="bg-background/90 text-foreground border-primary hover:bg-primary hover:text-primary-foreground">
+          <Button 
+            variant="outline" 
+            className="bg-background/90 text-foreground border-primary hover:bg-primary hover:text-primary-foreground"
+            onClick={handleViewDetails}
+          >
             <Eye className="h-4 w-4 mr-2" />
             Ver Detalhes
           </Button>
@@ -102,7 +114,12 @@ const PropertyCard = ({
         {/* Price */}
         <div className="flex items-center justify-between">
           <div className="text-xl font-bold text-primary">{price}</div>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={handleViewDetails}
+          >
             Saiba mais
           </Button>
         </div>

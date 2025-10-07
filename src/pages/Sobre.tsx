@@ -3,7 +3,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, Award, Target, Heart } from "lucide-react";
-import consultationImage from "@/assets/consultation.jpg";
+import consultationImage from "@/assets/residencial-bela-vista-2.png";
 
 const Sobre = () => {
   const valores = [
@@ -33,7 +33,7 @@ const Sobre = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="pt-32">
+      <main className="main-content">
         {/* Hero Section */}
         <section className="py-16 bg-gradient-to-b from-background to-card">
           <div className="container mx-auto px-4">
@@ -66,9 +66,9 @@ const Sobre = () => {
                     com os objetivos de nossos clientes.
                   </p>
                   <p>
-                    Hoje, somos reconhecidos como uma das principais consultorias 
-                    imobiliárias especializadas em imóveis de alto padrão na região 
-                    metropolitana de São Paulo.
+                    Hoje, somos reconhecidos como uma das principais consultorias
+                    imobiliárias especializadas em imóveis de alto padrão na região
+                    de Arujá e Itaquaquecetuba.
                   </p>
                 </div>
                 <Button className="bg-primary hover:bg-primary/90 cta-glow">

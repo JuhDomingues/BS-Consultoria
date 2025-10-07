@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="#2563eb">
-  <path d="M16 2L28 14v16H20v-8h-8v8H4V14L16 2z"/>
-  <rect x="12" y="22" width="8" height="8" fill="white"/>
-  <text x="16" y="28" text-anchor="middle" font-family="Arial" font-size="6" font-weight="bold" fill="#2563eb">BS</text>
-</svg>

@@ -2,19 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PropertyCard from "./PropertyCard";
 import { useRef } from "react";
-
-interface Property {
-  id: string;
-  title: string;
-  location: string;
-  price: string;
-  image: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  area?: number;
-  type: string;
-  category: string;
-}
+import { Property } from "@/utils/parsePropertyData";
 
 interface PropertyCarouselProps {
   title: string;

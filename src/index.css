@@ -157,4 +157,15 @@
   .cta-glow:hover {
     box-shadow: var(--shadow-glow);
   }
+
+  /* Main content spacing for fixed header */
+  .main-content {
+    padding-top: 9rem; /* 144px - altura aproximada do header fixo */
+  }
+
+  @media (min-width: 1024px) {
+    .main-content {
+      padding-top: 11rem; /* 176px - altura maior para desktop com search bar */
+    }
+  }
 }

@@ -1,0 +1,128 @@
+{
+  "totalProperties": 24,
+  "totalImagesDownloaded": 591,
+  "errors": 0,
+  "downloadDate": "2025-09-30T17:13:37.291Z",
+  "directories": [
+    {
+      "id": "3500447",
+      "directory": "src/assets/imoveis/3500447",
+      "originalImageCount": 10
+    },
+    {
+      "id": "3129547",
+      "directory": "src/assets/imoveis/3129547",
+      "originalImageCount": 16
+    },
+    {
+      "id": "3574133",
+      "directory": "src/assets/imoveis/3574133",
+      "originalImageCount": 28
+    },
+    {
+      "id": "3129575",
+      "directory": "src/assets/imoveis/3129575",
+      "originalImageCount": 21
+    },
+    {
+      "id": "3040948",
+      "directory": "src/assets/imoveis/3040948",
+      "originalImageCount": 18
+    },
+    {
+      "id": "3105758",
+      "directory": "src/assets/imoveis/3105758",
+      "originalImageCount": 24
+    },
+    {
+      "id": "3629341",
+      "directory": "src/assets/imoveis/3629341",
+      "originalImageCount": 22
+    },
+    {
+      "id": "2266571",
+      "directory": "src/assets/imoveis/2266571",
+      "originalImageCount": 26
+    },
+    {
+      "id": "3170378",
+      "directory": "src/assets/imoveis/3170378",
+      "originalImageCount": 23
+    },
+    {
+      "id": "3041988",
+      "directory": "src/assets/imoveis/3041988",
+      "originalImageCount": 20
+    },
+    {
+      "id": "3144281",
+      "directory": "src/assets/imoveis/3144281",
+      "originalImageCount": 23
+    },
+    {
+      "id": "3461770",
+      "directory": "src/assets/imoveis/3461770",
+      "originalImageCount": 25
+    },
+    {
+      "id": "3092042",
+      "directory": "src/assets/imoveis/3092042",
+      "originalImageCount": 39
+    },
+    {
+      "id": "3232364",
+      "directory": "src/assets/imoveis/3232364",
+      "originalImageCount": 40
+    },
+    {
+      "id": "3340958",
+      "directory": "src/assets/imoveis/3340958",
+      "originalImageCount": 36
+    },
+    {
+      "id": "3921506",
+      "directory": "src/assets/imoveis/3921506",
+      "originalImageCount": 28
+    },
+    {
+      "id": "2536096",
+      "directory": "src/assets/imoveis/2536096",
+      "originalImageCount": 28
+    },
+    {
+      "id": "1668579",
+      "directory": "src/assets/imoveis/1668579",
+      "originalImageCount": 28
+    },
+    {
+      "id": "3378275",
+      "directory": "src/assets/imoveis/3378275",
+      "originalImageCount": 47
+    },
+    {
+      "id": "3041930",
+      "directory": "src/assets/imoveis/3041930",
+      "originalImageCount": 19
+    },
+    {
+      "id": "3106245",
+      "directory": "src/assets/imoveis/3106245",
+      "originalImageCount": 25
+    },
+    {
+      "id": "3119119",
+      "directory": "src/assets/imoveis/3119119",
+      "originalImageCount": 26
+    },
+    {
+      "id": "3500462",
+      "directory": "src/assets/imoveis/3500462",
+      "originalImageCount": 37
+    },
+    {
+      "id": "3921473",
+      "directory": "src/assets/imoveis/3921473",
+      "originalImageCount": 30
+    }
+  ]
+}
