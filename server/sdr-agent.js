@@ -439,20 +439,56 @@ ${description}
 
     // Get property images
     const imagesField = property['images'] || property['Imagens'] || property.images;
-    if (imagesField && Array.isArray(imagesField) && imagesField.length > 0) {
-      // Send up to 3 images
-      const imagesToSend = imagesField.slice(0, 3);
 
-      for (let i = 0; i < imagesToSend.length; i++) {
-        const image = imagesToSend[i];
-        const imageUrl = image.url || image;
+    if (imagesField) {
+      let imagePaths = [];
 
-        // Add a small delay between images to avoid rate limiting
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+      // Handle different image field formats
+      if (Array.isArray(imagesField)) {
+        // If it's already an array
+        imagePaths = imagesField.map(img => img.url || img);
+      } else if (typeof imagesField === 'string') {
+        // If it's a string with newlines (Baserow format)
+        imagePaths = imagesField
+          .split('\n')
+          .map(path => path.trim())
+          .filter(path => path.length > 0);
+      }
+
+      if (imagePaths.length > 0) {
+        // Base URL for images (deploy URL or local)
+        const BASE_URL = process.env.SITE_BASE_URL || 'https://bs-consultoria.vercel.app';
+
+        // Send up to 3 images
+        const imagesToSend = imagePaths.slice(0, 3);
+
+        console.log(`Sending ${imagesToSend.length} images for property: ${title}`);
+
+        for (let i = 0; i < imagesToSend.length; i++) {
+          let imageUrl = imagesToSend[i];
+
+          // Convert relative path to absolute URL
+          if (imageUrl.startsWith('/')) {
+            imageUrl = BASE_URL + imageUrl;
+          }
+
+          console.log(`Image ${i + 1} URL:`, imageUrl);
+
+          // Add a small delay between images to avoid rate limiting
+          if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+
+          try {
+            await sendWhatsAppImage(phoneNumber, imageUrl, i === 0 ? title : '');
+            console.log(`Successfully sent image ${i + 1}`);
+          } catch (error) {
+            console.error(`Failed to send image ${i + 1}:`, error.message);
+            // Continue with next image even if one fails
+          }
         }
-
-        await sendWhatsAppImage(phoneNumber, imageUrl, i === 0 ? title : '');
+      } else {
+        console.log('No images found for property:', title);
       }
     }
 
