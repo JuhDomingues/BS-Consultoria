@@ -387,11 +387,39 @@ function detectPropertyInfoRequest(message) {
     'mais sobre este',
     'quero saber mais sobre',
     'me fala sobre o',
-    'me fala sobre a'
+    'me fala sobre a',
+    'ver detalhes',
+    'quero ver',
+    'gostaria de ver',
+    'quero saber mais',
+    'gostaria de mais',
+    'mais informações',
+    'mais informacoes'
   ];
 
   const lowerMessage = message.toLowerCase();
   return explicitKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
+/**
+ * Check if AI response indicates it will send property details
+ */
+function aiWillSendPropertyDetails(aiResponse) {
+  const indicators = [
+    'vou enviar',
+    'vou te enviar',
+    'vou mandar',
+    'vou te mandar',
+    'vou te passar',
+    'já envio',
+    'já te envio',
+    'já mando',
+    'segue',
+    'seguem'
+  ];
+
+  const lowerResponse = aiResponse.toLowerCase();
+  return indicators.some(indicator => lowerResponse.includes(indicator));
 }
 
 /**
@@ -561,13 +589,14 @@ async function processMessage(phoneNumber, message, propertyId = null) {
       context.history = context.history.slice(-20);
     }
 
-    // Check if customer is EXPLICITLY asking for property information
+    // Check if customer is EXPLICITLY asking for property information OR if AI says it will send
     const isRequestingInfo = detectPropertyInfoRequest(message);
     const cameFromPropertyPage = isFromSpecificPropertyPage(context, propertyId);
+    const aiWillSend = aiWillSendPropertyDetails(aiResponse);
     let shouldSendPropertyDetails = false;
     let propertyToSend = null;
 
-    console.log(`Is requesting info: ${isRequestingInfo} | From property page: ${cameFromPropertyPage} | Message: "${message}"`);
+    console.log(`Is requesting info: ${isRequestingInfo} | From property page: ${cameFromPropertyPage} | AI will send: ${aiWillSend} | Message: "${message}"`);
 
     // Get only ACTIVE properties
     const activeProperties = allProperties.filter(p => p['Active'] !== false && p['Ativo'] !== false && p.active !== false);
@@ -576,7 +605,8 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     // ONLY send property details when:
     // 1. Customer EXPLICITLY requests info (e.g., "me manda foto", "mostra o apartamento")
     // 2. Customer came from a specific property page on the website
-    const shouldSendDetails = (isRequestingInfo || cameFromPropertyPage) && activeProperties.length > 0;
+    // 3. AI response indicates it will send property details
+    const shouldSendDetails = (isRequestingInfo || cameFromPropertyPage || aiWillSend) && activeProperties.length > 0;
 
     if (shouldSendDetails) {
       // Priority 1: If we have a propertyId in context from previous interaction
@@ -593,15 +623,27 @@ async function processMessage(phoneNumber, message, propertyId = null) {
         }
       }
 
-      // Priority 3: Try to match property name from message (only if explicitly requesting)
-      if (!propertyToSend && isRequestingInfo) {
+      // Priority 3: Try to match property name from message or AI response
+      if (!propertyToSend && (isRequestingInfo || aiWillSend)) {
         const lowerMessage = message.toLowerCase();
+        const lowerAiResponse = aiResponse.toLowerCase();
+
         propertyToSend = activeProperties.find(p => {
           const title = (p['Title'] || p['Título'] || p.title || '').toLowerCase();
           const neighborhood = (p['neighborhood'] || p['Bairro'] || p.bairro || '').toLowerCase();
-          // Check if message contains property title or neighborhood
-          return title.split(' ').some(word => word.length > 3 && lowerMessage.includes(word)) ||
-                 neighborhood.split(' ').some(word => word.length > 3 && lowerMessage.includes(word));
+
+          // Check if message or AI response contains property title or neighborhood
+          const titleWords = title.split(' ').filter(word => word.length > 4);
+          const neighborhoodWords = neighborhood.split(' ').filter(word => word.length > 4);
+
+          const titleMatch = titleWords.some(word =>
+            lowerMessage.includes(word) || lowerAiResponse.includes(word)
+          );
+          const neighborhoodMatch = neighborhoodWords.some(word =>
+            lowerMessage.includes(word) || lowerAiResponse.includes(word)
+          );
+
+          return titleMatch || neighborhoodMatch;
         });
       }
 
