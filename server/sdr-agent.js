@@ -414,12 +414,29 @@ function aiWillSendPropertyDetails(aiResponse) {
     'já envio',
     'já te envio',
     'já mando',
+    'te envio',
+    'te mando',
+    'envio as fotos',
+    'mando as fotos',
+    'envio os detalhes',
+    'mando os detalhes',
+    'um momento',
+    'aguarde',
     'segue',
-    'seguem'
+    'seguem',
+    'aqui está',
+    'aqui estão'
   ];
 
   const lowerResponse = aiResponse.toLowerCase();
-  return indicators.some(indicator => lowerResponse.includes(indicator));
+
+  // Check if AI explicitly says it will send photos/details
+  const willSend = indicators.some(indicator => lowerResponse.includes(indicator));
+
+  // Also check if the response contains emoji that indicates sending (📸, 🏠, 📍)
+  const hasSendingEmoji = /📸|📩|📤/.test(aiResponse);
+
+  return willSend || hasSendingEmoji;
 }
 
 /**
