@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Property } from "@/utils/parsePropertyData";
 import { ImageUpload } from "@/components/ImageUpload";
+import { Sparkles } from "lucide-react";
+import { generatePropertyContent } from "@/services/openai";
 
 interface PropertyFormProps {
   open: boolean;

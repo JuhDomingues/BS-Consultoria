@@ -159,7 +159,7 @@ const PropertyDetail = () => {
               </div>
               
               <h1
-                className={`font-bold text-foreground whitespace-nowrap ${
+                className={`font-bold text-foreground md:whitespace-nowrap ${
                   property.title.length > 80 ? 'text-base sm:text-lg lg:text-xl' :
                   property.title.length > 60 ? 'text-lg sm:text-xl lg:text-2xl' :
                   'text-xl sm:text-2xl lg:text-3xl'

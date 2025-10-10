@@ -33,7 +33,7 @@ const HeroSection = () => {
         <img
           src={logoBS}
           alt="BS Consultoria de Imóveis"
-          className="h-32 w-32 object-contain drop-shadow-lg"
+          className="h-20 w-20 md:h-28 md:w-28 object-contain drop-shadow-lg"
         />
       </div>
 
@@ -49,17 +49,18 @@ const HeroSection = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 text-center text-white">
-        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-          {/* Urgency Badge */}
-          <div className="flex flex-col gap-2 items-center">
-            <Badge variant="destructive" className="bg-red-600 text-white font-bold text-base px-6 py-2 animate-pulse shadow-lg">
-              🔥 APENAS 10 UNIDADES DISPONÍVEIS - ÚLTIMAS OPORTUNIDADES!
+        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pt-20 md:pt-0">
+
+          {/* Urgency Badges - Above Title */}
+          <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
+            <Badge variant="destructive" className="bg-red-600 text-white font-semibold text-[10px] sm:text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 animate-pulse shadow-lg whitespace-nowrap">
+              🔥 10 UNIDADES DISPONÍVEIS
             </Badge>
-            <Badge variant="destructive" className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold text-sm px-4 py-2">
-              ⭐ LANÇAMENTO EXCLUSIVO - OBRAS INICIADAS
+            <Badge variant="destructive" className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-semibold text-[10px] sm:text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 whitespace-nowrap">
+              ⭐ DESCONTO EXCLUSIVO
             </Badge>
           </div>
-          
+
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
             Residencial
             <span className="text-primary block">Bela Vista Itaquá</span>

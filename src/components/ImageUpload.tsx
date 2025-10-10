@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImageUploadProps {
@@ -15,6 +15,7 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
     images.map((url) => ({ url }))
   );
   const [uploading, setUploading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +101,37 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
     }
   };
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newPreviews = [...previews];
+    const draggedItem = newPreviews[draggedIndex];
+
+    // Remove from old position
+    newPreviews.splice(draggedIndex, 1);
+    // Insert at new position
+    newPreviews.splice(index, 0, draggedItem);
+
+    setPreviews(newPreviews);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+
+    // Update parent with new order
+    const urls = previews
+      .filter((p) => !p.file)
+      .map((p) => p.url);
+    onChange(urls);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -139,42 +171,69 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
 
       {/* Preview Grid */}
       {previews.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {previews.map((preview, index) => (
-            <div
-              key={index}
-              className="relative aspect-video rounded-lg border-2 border-dashed border-muted overflow-hidden group"
-            >
-              <img
-                src={preview.url}
-                alt={`Preview ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
-
-              {/* File indicator */}
-              {preview.file && (
-                <div className="absolute top-2 left-2">
-                  <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded">
-                    Novo
-                  </span>
-                </div>
-              )}
-
-              {/* Remove button */}
-              <button
-                type="button"
-                onClick={() => handleRemoveImage(index)}
-                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Arraste as imagens para reordenar. A primeira imagem será a capa do imóvel.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {previews.map((preview, index) => (
+              <div
+                key={index}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={cn(
+                  "relative aspect-video rounded-lg border-2 border-dashed border-muted overflow-hidden group cursor-move transition-all",
+                  draggedIndex === index && "opacity-50 scale-95",
+                  index === 0 && "ring-2 ring-primary"
+                )}
               >
-                <X className="h-4 w-4" />
-              </button>
+                {/* Drag handle */}
+                <div className="absolute top-2 left-2 z-10 bg-black/60 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  <GripVertical className="h-4 w-4" />
+                </div>
 
-              {/* Image number */}
-              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                #{index + 1}
+                <img
+                  src={preview.url}
+                  alt={`Preview ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* File indicator */}
+                {preview.file && (
+                  <div className="absolute top-2 left-10">
+                    <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded">
+                      Novo
+                    </span>
+                  </div>
+                )}
+
+                {/* Cover indicator */}
+                {index === 0 && (
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2">
+                    <span className="bg-primary text-white text-xs px-2 py-1 rounded">
+                      Capa
+                    </span>
+                  </div>
+                )}
+
+                {/* Remove button */}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                {/* Image number */}
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                  #{index + 1}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : (
         <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
