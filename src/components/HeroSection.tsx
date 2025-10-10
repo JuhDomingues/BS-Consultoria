@@ -49,15 +49,15 @@ const HeroSection = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 text-center text-white">
-        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pt-20 md:pt-0">
+        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pt-40 md:pt-16">
 
           {/* Urgency Badges - Above Title */}
-          <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
-            <Badge variant="destructive" className="bg-red-600 text-white font-semibold text-[10px] sm:text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 animate-pulse shadow-lg whitespace-nowrap">
+          <div className="flex flex-col sm:flex-row gap-1.5 items-center justify-center">
+            <Badge variant="destructive" className="bg-red-600 text-white font-medium text-[9px] sm:text-[10px] px-2 py-0.5 sm:px-2.5 sm:py-1 animate-pulse shadow-lg whitespace-nowrap">
               🔥 10 UNIDADES DISPONÍVEIS
             </Badge>
-            <Badge variant="destructive" className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-semibold text-[10px] sm:text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 whitespace-nowrap">
-              ⭐ DESCONTO EXCLUSIVO
+            <Badge variant="destructive" className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-medium text-[9px] sm:text-[10px] px-2 py-0.5 sm:px-2.5 sm:py-1 whitespace-nowrap">
+              ⭐ OBRAS INICIADAS
             </Badge>
           </div>
 
