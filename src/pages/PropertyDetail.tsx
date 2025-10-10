@@ -101,7 +101,7 @@ const PropertyDetail = () => {
     const message = encodeURIComponent(
       `Olá! Vi o imóvel "${property.title}" no site e gostaria de mais informações.`
     );
-    window.open(`https://wa.me/5511981598027?text=${message}`, '_blank');
+    window.open(`https://wa.me/5511968838236?text=${message}`, '_blank');
   };
 
   return (
@@ -329,7 +329,7 @@ const PropertyDetail = () => {
 
                   <Button variant="outline" className="w-full h-12 text-base">
                     <Phone className="h-5 w-5 mr-2" />
-                    (11) 97336-0980
+                    (11) 96883-8236
                   </Button>
                 </div>
 

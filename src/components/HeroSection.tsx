@@ -19,7 +19,7 @@ const HeroSection = () => {
     const message = encodeURIComponent(
       'Olá! Gostaria de mais informações sobre os imóveis disponíveis.'
     );
-    window.open(`https://wa.me/5511981598027?text=${message}`, '_blank');
+    window.open(`https://wa.me/5511968838236?text=${message}`, '_blank');
   };
 
   const goToPropertyDetail = () => {
