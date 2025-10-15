@@ -457,7 +457,12 @@ function detectSchedulingIntent(message) {
     'ir ver',
     'horário',
     'quando posso',
-    'disponibilidade'
+    'disponibilidade',
+    'marcar',
+    'marcar visita',
+    'quero agendar',
+    'gostaria de agendar',
+    'agendar visita'
   ];
 
   const lowerMessage = message.toLowerCase();
@@ -889,17 +894,25 @@ async function processMessage(phoneNumber, message, propertyId = null) {
 
     // Check if customer wants to schedule a visit
     let finalResponse = aiResponse;
+    let schedulingInfo = null;
+
     if (detectSchedulingIntent(aiResponse) || detectSchedulingIntent(message)) {
-      // In the future, integrate with Calendly API here
-      // For now, just include a note
-      finalResponse += '\n\n📅 *Agendamento disponível em breve!*';
+      // Customer wants to schedule a visit
+      // Prepare scheduling information for the server to handle
+      schedulingInfo = {
+        wantsToSchedule: true,
+        propertyId: context.propertyId || propertyId,
+        customerPhone: phoneNumber,
+        customerMessage: message
+      };
     }
 
     return {
       response: finalResponse,
       context: context,
       shouldSendPropertyDetails,
-      propertyToSend
+      propertyToSend,
+      schedulingInfo
     };
   } catch (error) {
     console.error('Error processing message:', error);

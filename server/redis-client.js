@@ -226,6 +226,87 @@ async function getRedisStats() {
 }
 
 /**
+ * Set scheduled reminder in Redis
+ */
+async function setScheduledReminder(eventUri, reminder) {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot set scheduled reminder');
+      return false;
+    }
+
+    const key = `reminder:${eventUri}`;
+    await redisClient.set(key, JSON.stringify(reminder));
+    // Expire after 48 hours (in case reminder doesn't fire)
+    await redisClient.expire(key, 172800);
+    return true;
+  } catch (error) {
+    console.error('Error setting scheduled reminder in Redis:', error);
+    return false;
+  }
+}
+
+/**
+ * Get scheduled reminder from Redis
+ */
+async function getScheduledReminders(eventUri = null) {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot get scheduled reminders');
+      return null;
+    }
+
+    if (eventUri) {
+      // Get specific reminder
+      const key = `reminder:${eventUri}`;
+      const data = await redisClient.get(key);
+      if (!data) return null;
+
+      return typeof data === 'string' ? JSON.parse(data) : data;
+    } else {
+      // Get all reminders
+      const keys = await redisClient.keys('reminder:*');
+      const reminders = [];
+
+      for (const key of keys) {
+        const data = await redisClient.get(key);
+        if (data) {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          reminders.push({
+            eventUri: key.replace('reminder:', ''),
+            ...parsed
+          });
+        }
+      }
+
+      return reminders;
+    }
+  } catch (error) {
+    console.error('Error getting scheduled reminders from Redis:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete scheduled reminder from Redis
+ */
+async function deleteScheduledReminder(eventUri) {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot delete scheduled reminder');
+      return false;
+    }
+
+    const key = `reminder:${eventUri}`;
+    await redisClient.del(key);
+    return true;
+  } catch (error) {
+    console.error('Error deleting scheduled reminder from Redis:', error);
+    return false;
+  }
+}
+
+/**
  * Close Redis connection
  */
 async function closeRedis() {
@@ -243,6 +324,9 @@ export {
   getConversationContext,
   setConversationContext,
   deleteConversationContext,
+  setScheduledReminder,
+  getScheduledReminders,
+  deleteScheduledReminder,
   getAllCustomers,
   getRedisStats,
   closeRedis,

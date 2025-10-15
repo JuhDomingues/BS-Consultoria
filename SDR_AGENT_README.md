@@ -22,10 +22,14 @@ O Agente SDR (Sales Development Representative) é um sistema de inteligência a
 - **NUNCA** inventa imóveis - apenas utiliza dados reais
 - Fornece informações precisas sobre disponibilidade
 
-### 📅 Agendamento Automático
-- Integração com Calendly para marcar visitas
-- Detecta intenção de agendamento automaticamente
-- Gera links personalizados de agendamento
+### 📅 Agendamento Automático com Calendly
+- ✅ Integração completa com Calendly
+- ✅ Detecta intenção de agendamento automaticamente
+- ✅ Gera links personalizados com dados do imóvel
+- ✅ Envia confirmação ao cliente após agendamento
+- ✅ Notifica corretor com dados do cliente
+- ✅ Lembretes automáticos 1 hora antes da visita
+- ✅ Gerencia cancelamentos automaticamente
 
 ### 💬 Comunicação Natural
 - Powered by GPT-4o-mini (OpenAI)
@@ -119,18 +123,33 @@ docker-compose up -d
 OPENAI_API_KEY=sk-proj-...
 ```
 
-### 5. Configurar Calendly (Opcional)
+### 5. Configurar Calendly
 
-**Básico (sem API key):**
-- Crie conta em https://calendly.com
-- Configure um tipo de evento para "Visita a Imóvel"
-- O sistema usará link público
+**📚 [GUIA COMPLETO DE CONFIGURAÇÃO](./CALENDLY_SETUP.md)**
 
-**Avançado (com API key - requer plano Pro):**
-1. Acesse https://calendly.com/integrations/api_webhooks
-2. Gere API key
-3. Obtenha seu Event Type UUID
-4. Adicione ao `.env`
+A integração com Calendly permite agendamento automático de visitas com confirmações e lembretes.
+
+**Configuração Rápida (Conta Básica):**
+1. Crie conta em https://calendly.com
+2. Configure um tipo de evento "Visita a Imóvel"
+3. Adicione ao `.env.local`:
+```bash
+CALENDLY_PUBLIC_URL=https://calendly.com/seu-usuario/visita-imovel
+REALTOR_PHONE=5511981598027
+```
+
+**Configuração Completa (Conta Pro - Recomendado):**
+1. Siga o [Guia Completo de Configuração do Calendly](./CALENDLY_SETUP.md)
+2. Configure webhooks para notificações automáticas
+3. Obtenha credenciais API
+4. Configure perguntas personalizadas
+
+**Recursos da Integração:**
+- ✅ Links de agendamento personalizados por imóvel
+- ✅ Confirmação automática via WhatsApp (cliente + corretor)
+- ✅ Lembretes 1 hora antes da visita
+- ✅ Gerenciamento de cancelamentos
+- ✅ Armazenamento persistente no Redis
 
 ## 🎮 Uso
 
@@ -197,8 +216,31 @@ AI: Perfeito! Temos parceria com o programa Minha Casa Minha
     pessoalmente?
 
 Cliente: Posso ir sábado
-AI: Que ótimo! Posso agendar uma visita para você.
-    [Link do Calendly]
+AI: Que ótimo! Posso agendar uma visita para você. Qual seu nome completo?
+
+Cliente: João Silva
+AI: Ótimo, João! 🎉
+
+Para agendar sua visita ao *Residencial Bela Vista*, acesse:
+🗓️ https://calendly.com/bs-consultoria/visita?...
+
+Você receberá uma confirmação por e-mail!
+
+[Cliente agenda no Calendly]
+
+[Sistema envia confirmação automática:]
+✅ VISITA CONFIRMADA!
+
+Olá João! Sua visita foi agendada com sucesso! 🎉
+
+📍 Imóvel: Residencial Bela Vista
+📌 Endereço: Av. Principal, 100 - Centro
+📅 Data: Sábado, 20 de outubro
+⏰ Horário: 14:00
+
+Você receberá um lembrete 1 hora antes da visita.
+
+[Corretor também recebe notificação no WhatsApp]
 ```
 
 ### Exemplo 2: Cliente Explorando Opções
