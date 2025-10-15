@@ -482,21 +482,34 @@ function detectPropertyInfoRequest(message) {
     'manda foto',
     'me manda foto',
     'quero ver foto',
+    'quero ver',
+    'quero ver as fotos',
     'me mostra foto',
     'mostra foto',
+    'mostra as fotos',
     'ver foto',
     'ver imagem',
+    'ver as fotos',
     'fotos do',
     'fotos da',
+    'foto do',
+    'foto da',
     'imagens do',
     'imagens da',
     'me envia as fotos',
     'envia as fotos',
     'manda as fotos',
-    'mostra as fotos',
+    'manda foto',
     'pode enviar',
     'pode mandar',
-    'pode mostrar'
+    'pode mostrar',
+    'quero foto',
+    'tem foto',
+    'tem fotos',
+    'manda pra mim',
+    'envia pra mim',
+    'sim, quero',
+    'sim quero'
   ];
 
   const lowerMessage = message.toLowerCase();
@@ -850,7 +863,37 @@ async function processMessage(phoneNumber, message, propertyId = null) {
         });
       }
 
-      // Second pass: Fallback to weak match only if no strong match found
+      // Second pass: Check last AI response for property mentions (when user just says "quero ver" or "sim")
+      if (!propertyToSend && (normalizedMessage === 'quero ver' || normalizedMessage === 'sim' || normalizedMessage === 'sim quero' || normalizedMessage.startsWith('quero ver'))) {
+        // Look at the last AI message to find which property was mentioned
+        const lastAIMessages = context.history.filter(h => h.role === 'assistant').slice(-2);
+
+        if (lastAIMessages.length > 0) {
+          const lastAIText = normalize(lastAIMessages[lastAIMessages.length - 1].content);
+          console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 100)}..."`);
+
+          // Try to find property by matching title/neighborhood from last AI message
+          propertyToSend = activeProperties.find(p => {
+            const title = normalize(p['Title'] || p['Título'] || p.title || '');
+            const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
+
+            // Check if property title or neighborhood appears in last AI message
+            const titleWords = title.split(/[\s-]+/).filter(word => word.length > 3);
+            const neighborhoodWords = neighborhood.split(/[\s-]+/).filter(word => word.length > 3);
+
+            const inLastMessage = titleWords.some(word => lastAIText.includes(word)) ||
+                                 neighborhoodWords.some(word => lastAIText.includes(word));
+
+            if (inLastMessage) {
+              console.log(`✅ Found property from last AI message: ${title}`);
+              return true;
+            }
+            return false;
+          });
+        }
+      }
+
+      // Third pass: Fallback to weak match only if no strong match found
       if (!propertyToSend) {
         propertyToSend = activeProperties.find(p => {
           const title = normalize(p['Title'] || p['Título'] || p.title || '');
