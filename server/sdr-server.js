@@ -68,16 +68,16 @@ app.post('/webhook/whatsapp', async (req, res) => {
         // Process message with AI
         const result = await processMessage(phoneNumber, message);
 
-        // Send response via WhatsApp
-        await sendWhatsAppMessage(phoneNumber, result.response);
-
-        console.log(`Sent response to ${phoneNumber}: ${result.response}`);
-
-        // If should send property details, send them
+        // If should send property details, send ONLY them (skip AI response)
         if (result.shouldSendPropertyDetails && result.propertyToSend) {
           console.log(`Sending property details for: ${result.propertyToSend['Título'] || result.propertyToSend.title}`);
+          console.log(`Skipping AI response - sending property details directly`);
           const { sendPropertyDetails } = await import('./sdr-agent.js');
           await sendPropertyDetails(phoneNumber, result.propertyToSend);
+        } else {
+          // Only send AI response if NOT sending property details
+          await sendWhatsAppMessage(phoneNumber, result.response);
+          console.log(`Sent response to ${phoneNumber}: ${result.response}`);
         }
       }
     }

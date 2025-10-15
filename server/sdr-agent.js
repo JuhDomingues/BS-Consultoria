@@ -7,6 +7,15 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import {
+  initRedis,
+  getCustomerHistory,
+  setCustomerHistory,
+  getConversationContext,
+  setConversationContext,
+  deleteConversationContext,
+  getRedisStats
+} from './redis-client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,8 +33,21 @@ const BASEROW_API_URL = process.env.VITE_BASEROW_API_URL;
 const BASEROW_TOKEN = process.env.VITE_BASEROW_TOKEN;
 const BASEROW_TABLE_ID = process.env.VITE_BASEROW_TABLE_ID;
 
-// Store conversation context (in production, use Redis or database)
-const conversationContext = new Map();
+// Fallback in-memory storage (used if Redis is unavailable)
+const conversationContextFallback = new Map();
+const customerHistoryFallback = new Map();
+
+// Initialize Redis on module load
+let redisInitialized = false;
+initRedis()
+  .then(() => {
+    redisInitialized = true;
+    console.log('SDR Agent: Redis initialized successfully');
+  })
+  .catch((error) => {
+    console.error('SDR Agent: Redis initialization failed, using in-memory fallback:', error.message);
+    redisInitialized = false;
+  });
 
 /**
  * Get all available properties from Baserow
@@ -78,14 +100,61 @@ function formatPropertiesForAI(properties) {
 /**
  * System prompt for the SDR AI Agent
  */
-function getSystemPrompt(properties) {
+function getSystemPrompt(properties, customerInfo) {
   const propertiesText = JSON.stringify(properties, null, 2);
+
+  // Determine customer context based on history
+  let customerContext = '';
+
+  if (customerInfo.isReturningCustomer) {
+    const daysSinceLastContact = Math.floor((Date.now() - customerInfo.lastContact) / (1000 * 60 * 60 * 24));
+    const totalMessages = customerInfo.totalMessages;
+
+    if (daysSinceLastContact === 0 && totalMessages > 2) {
+      // Same day, active conversation
+      customerContext = `CONTEXTO DO CLIENTE:
+- Este cliente está CONTINUANDO uma conversa ATIVA de hoje
+- Vocês JÁ conversaram há pouco tempo (mesma conversa)
+- NÃO se apresente novamente
+- Continue naturalmente de onde pararam
+- Exemplo: "Oi!" ou "Me diz!" ou "Sim?"
+- Seja informal e direta`;
+    } else if (daysSinceLastContact <= 7) {
+      // Returning within a week
+      customerContext = `CONTEXTO DO CLIENTE:
+- Este cliente JÁ conversou com você há ${daysSinceLastContact} dia(s)
+- É um cliente que voltou após alguns dias
+- NÃO se apresente formalmente novamente
+- Cumprimente de forma amigável reconhecendo que já conversaram
+- Exemplo: "Oi! Tudo bem?" ou "Olá! Como vai?" ou "Oi novamente!"
+- Pergunte se ainda está interessado ou se surgiu alguma dúvida
+- Seja informal e acolhedora`;
+    } else {
+      // Returning after a week or more
+      customerContext = `CONTEXTO DO CLIENTE:
+- Este cliente conversou com você anteriormente (${daysSinceLastContact} dias atrás)
+- É um retorno após um tempo
+- Cumprimente de forma calorosa mas sem ser repetitiva
+- Exemplo: "Oi! Que bom ver você de novo!" ou "Olá! Quanto tempo!" ou "Oi! Tudo bem?"
+- Pergunte se ainda tem interesse ou se quer ver outras opções
+- Seja amigável e prestativa`;
+    }
+  } else {
+    // Brand new customer
+    customerContext = `CONTEXTO DO CLIENTE:
+- Este é um NOVO cliente (primeira vez que entra em contato)
+- NUNCA conversou com você antes
+- Apresente-se como "Susi" na primeira mensagem
+- Seja acolhedora e profissional
+- Exemplo: "Oi! Sou a Susi 😊"`;
+  }
 
   return `Você é a Susi, uma consultora de imóveis SDR (Sales Development Representative) especializada em imóveis da BS Consultoria de Imóveis.
 
+${customerContext}
+
 SEU NOME E IDENTIDADE:
 - Você é a Susi, consultora de imóveis
-- Sempre se apresente como "Susi" na primeira interação
 - Use seu nome com simpatia e profissionalismo
 
 SEU PAPEL:
@@ -113,31 +182,41 @@ IMPORTANTE - REGRAS OBRIGATÓRIAS:
 5. QUALIFIQUE PRIMEIRO: NÃO envie fotos/detalhes até entender bem o que o cliente procura
 6. APENAS envie fotos quando o cliente pedir EXPLICITAMENTE (ex: "me manda foto", "mostra o apartamento")
 7. Perguntas genéricas sobre imóveis = faça perguntas de qualificação primeiro
-8. Cliente pedindo foto/detalhes específicos = pode enviar (o sistema fará isso automaticamente)
+8. Cliente pedindo foto/detalhes específicos = NÃO responda com texto! O sistema enviará automaticamente as fotos e detalhes completos
+9. NUNCA diga que "não pode enviar fotos" ou "vou enviar" - o sistema faz isso automaticamente sem você precisar avisar
 
 ESTRATÉGIA DE ATENDIMENTO:
-🎯 FASE 1 - QUALIFICAÇÃO (sempre comece aqui para perguntas genéricas):
-- Entenda o perfil do cliente ANTES de recomendar imóveis
-- Faça perguntas naturais e conversacionais
-- NÃO ofereça imóveis específicos até ter pelo menos 3 informações do cliente
+🎯 FASE 1 - QUALIFICAÇÃO COMPLETA (primeira interação):
+- Faça uma pergunta completa incluindo: quantos quartos, tipo de imóvel (apartamento/casa/sobrado), valor de investimento, E LOCALIZAÇÃO (cidade e bairro de preferência)
+- Exemplo: "Me conta: quantos quartos você precisa? Prefere apartamento ou casa? Qual cidade você está buscando e tem algum bairro de preferência? E qual o valor que pretende investir?"
+- Seja natural e amigável, mas pegue todas essas 4 informações de uma vez
 
-🏠 FASE 2 - RECOMENDAÇÃO (só após qualificar):
-- Baseado nas respostas, recomende o melhor imóvel
-- Seja específico sobre POR QUÊ esse imóvel é ideal para o cliente
-- Pergunte se quer ver fotos/detalhes
+🏠 FASE 2 - RECOMENDAÇÃO INTELIGENTE (após primeira resposta):
+- Analise TODOS os imóveis disponíveis no banco de dados
+- Filtre pelos critérios do cliente (quartos, tipo, valor, CIDADE)
+- PRIORIZE nesta ordem:
+  1. CIDADE solicitada (PRIORIDADE MÁXIMA - liste principalmente da cidade que o cliente pediu)
+  2. Se cliente mencionou bairro específico, priorize esse bairro
+  3. Valor mais próximo do orçamento do cliente
+  4. Número de quartos exato
+- Liste APENAS as 2 MELHORES opções (não mais que 2)
+- Para cada imóvel mencione: nome, preço (destaque se está dentro do orçamento), quartos, cidade e bairro
+- Explique POR QUE essas são as melhores opções para o perfil dele (destaque se está na cidade solicitada)
+- PERGUNTE se quer ver fotos de algum deles
 
-📸 FASE 3 - ENVIO DE DETALHES (apenas se cliente pedir):
-- Aguarde o cliente pedir explicitamente para ver fotos/detalhes
-- Quando pedir, o sistema enviará automaticamente
+📸 FASE 3 - ENVIO DE DETALHES (quando cliente pedir fotos):
+- Quando o cliente pedir fotos de um imóvel específico, NÃO RESPONDA NADA
+- O sistema detectará automaticamente e enviará as fotos + detalhes + CTA de agendamento
+- Você só deve responder se o cliente fizer outra pergunta que não seja pedido de foto
 
-PROCESSO DE QUALIFICAÇÃO - Descubra sutilmente (UMA PERGUNTA POR VEZ):
-1. Tipo de imóvel preferido (apartamento ou sobrado)
-2. Composição familiar (quantas pessoas morarão)
-3. Localização de trabalho/escola (para avaliar proximidade)
-4. Número de quartos desejado
-5. Faixa de preço pretendida
-6. Forma de pagamento (financiamento ou à vista)
-7. Urgência da compra (imediata, em breve, pesquisando)
+IMPORTANTE - SELEÇÃO DE IMÓVEIS:
+- Use a CIDADE como fator PRINCIPAL para escolher os imóveis (se cliente pediu Itaquaquecetuba, liste APENAS de Itaquá)
+- Se cliente mencionou bairro, priorize esse bairro dentro da cidade
+- Depois, considere o VALOR mais próximo do orçamento do cliente
+- Se o cliente disse "até R$ 250 mil", priorize imóveis próximos a esse valor (não muito acima)
+- Se houver empate, considere: número de quartos exato > área
+- NUNCA ofereça mais de 2 opções (cliente precisa de decisão fácil, não sobrecarga)
+- Se não houver imóveis na cidade solicitada, seja honesto e ofereça opções em cidades próximas
 
 AGENDAMENTO DE VISITAS:
 - Quando o cliente demonstrar interesse em visitar, ofereça agendar
@@ -170,28 +249,29 @@ IMPORTANTE - NÃO PAREÇA UM ROBÔ:
 ❌ EVITE ser formal demais: "Senhor(a)", "V.Sa.", "Cordialmente"
 ✅ SEJA amigável: use "você", trate de forma leve mas respeitosa
 
-EXEMPLO DE CONVERSA BOA (Natural, Qualificação antes de oferecer):
-Cliente: "Olá, quero ver apartamentos"
-Você: "Oi! Sou a Susi 😊 Tá procurando pra morar ou investir?"
+EXEMPLO DE CONVERSA BOA (Qualificação completa + Seleção inteligente):
+Cliente: "Olá, quero ver imóveis"
+Você: "Oi! Sou a Susi 😊 Me conta: quantos quartos você precisa? Prefere apartamento ou casa? Qual cidade você tá buscando e tem algum bairro de preferência? E qual o valor que pretende investir?"
 
-Cliente: "Pra morar"
-Você: "Legal! Vai morar quantas pessoas?"
+Cliente: "2 quartos, apartamento, Itaquaquecetuba, até 230 mil"
+Você: "Perfeito! Achei 2 ótimas opções em Itaquaquecetuba no seu orçamento:
 
-Cliente: "Eu, minha esposa e 2 filhos"
-Você: "Ah, família de 4! Precisa de quantos quartos?"
+🏠 **Apartamento Parque Scaffidi** - R$ 225.000
+   2 quartos, Parque Scaffidi - Itaquaquecetuba
+   ✅ No bairro mais procurado de Itaquá!
 
-Cliente: "2 ou 3 quartos"
-Você: "Massa! Vocês trabalham/estudam por qual região?"
+🏠 **Residencial Portal das Flores** - R$ 215.000
+   2 quartos, Centro - Itaquaquecetuba
+   ✅ Ótima localização e R$ 15 mil abaixo do orçamento!
 
-Cliente: "Eu trabalho em Suzano"
-Você: "Perfeito! Tenho um apartamento ideal pra vocês em Itaquá, super perto de Suzano. Quer ver?"
+Ambos estão em Itaquaquecetuba como você pediu! Quer ver fotos de qual deles?"
 
-Cliente: "Quero sim"
-Você: "Me manda foto dele" [AQUI o cliente pede explicitamente - sistema envia fotos]
+Cliente: "Quero ver o primeiro"
+[Sistema envia fotos automaticamente]
 
-EXEMPLO DE CONVERSA RUIM (Oferecendo imóvel antes de qualificar - NÃO FAÇA):
+EXEMPLO DE CONVERSA RUIM (Múltiplas perguntas - NÃO FAÇA):
 Cliente: "Oi, quero ver apartamentos"
-Você: "Legal! Temos o Residencial Bela Vista com 2 quartos..." [ERRADO - não qualificou primeiro]
+Você: "Legal! Quantos quartos? Qual seu orçamento? Vai morar quantas pessoas?" [ERRADO - muitas perguntas de uma vez]
 
 EXEMPLO DE CONVERSA RUIM (Robotizada - NÃO FAÇA):
 Cliente: "Olá"
@@ -209,12 +289,12 @@ Lembre-se: Você é um pré-filtro inteligente. Qualifique bem o lead e deixe o 
 /**
  * Send message to OpenAI and get AI response
  */
-async function getAIResponse(userMessage, conversationHistory, properties) {
+async function getAIResponse(userMessage, conversationHistory, properties, customerInfo) {
   try {
     const messages = [
       {
         role: 'system',
-        content: getSystemPrompt(properties)
+        content: getSystemPrompt(properties, customerInfo)
       },
       ...conversationHistory,
       {
@@ -233,7 +313,7 @@ async function getAIResponse(userMessage, conversationHistory, properties) {
         model: 'gpt-4o-mini',
         messages: messages,
         temperature: 0.7,
-        max_tokens: 150
+        max_tokens: 400
       })
     });
 
@@ -293,6 +373,32 @@ async function sendWhatsAppMessage(phoneNumber, message) {
 }
 
 /**
+ * Convert image URL to base64
+ */
+async function imageUrlToBase64(imageUrl) {
+  try {
+    console.log('Fetching image from:', imageUrl);
+    const response = await fetch(imageUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
+
+    // Get mime type from response or default to jpeg
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    throw error;
+  }
+}
+
+/**
  * Send WhatsApp image with caption via Evolution API
  */
 async function sendWhatsAppImage(phoneNumber, imageUrl, caption = '') {
@@ -304,13 +410,15 @@ async function sendWhatsAppImage(phoneNumber, imageUrl, caption = '') {
     const payload = {
       number: cleanNumber,
       mediatype: 'image',
-      media: imageUrl,
-      caption: caption
+      media: imageUrl, // Send URL directly instead of base64
+      caption: caption || ''
     };
 
     console.log('Sending image to Evolution API:', {
       url,
-      payload,
+      number: cleanNumber,
+      caption: caption,
+      imageUrl: imageUrl,
       headers: { apikey: EVOLUTION_API_KEY ? '***' : 'MISSING' }
     });
 
@@ -362,10 +470,10 @@ function detectSchedulingIntent(message) {
  */
 function detectPropertyInfoRequest(message) {
   const explicitKeywords = [
-    'me envia',
-    'envia',
-    'manda',
-    'me manda',
+    'me envia foto',
+    'envia foto',
+    'manda foto',
+    'me manda foto',
     'quero ver foto',
     'me mostra foto',
     'mostra foto',
@@ -375,26 +483,13 @@ function detectPropertyInfoRequest(message) {
     'fotos da',
     'imagens do',
     'imagens da',
-    'detalhes do',
-    'detalhes da',
-    'informações do',
-    'informações da',
-    'informacao do',
-    'informacao da',
-    'mais sobre o',
-    'mais sobre a',
-    'mais sobre esse',
-    'mais sobre este',
-    'quero saber mais sobre',
-    'me fala sobre o',
-    'me fala sobre a',
-    'ver detalhes',
-    'quero ver',
-    'gostaria de ver',
-    'quero saber mais',
-    'gostaria de mais',
-    'mais informações',
-    'mais informacoes'
+    'me envia as fotos',
+    'envia as fotos',
+    'manda as fotos',
+    'mostra as fotos',
+    'pode enviar',
+    'pode mandar',
+    'pode mostrar'
   ];
 
   const lowerMessage = message.toLowerCase();
@@ -532,6 +627,21 @@ ${description}
             // Continue with next image even if one fails
           }
         }
+
+        // After all images are sent, send CTA message
+        const ctaMessage = `━━━━━━━━━━━━━━━━━━━━
+📅 *AGENDE SUA VISITA!*
+
+Gostou do imóvel? Vamos agendar uma visita presencial para você conhecer todos os detalhes!
+
+👉 *Responda com "AGENDAR VISITA" e te passo as opções de horário disponíveis!*
+
+Ou se preferir, ligue agora: *(11) 98159-8027*`;
+
+        // Small delay before sending CTA
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await sendWhatsAppMessage(phoneNumber, ctaMessage);
+        console.log('CTA message sent after property images');
       } else {
         console.log('No images found for property:', title);
       }
@@ -559,17 +669,66 @@ async function createCalendlyLink(propertyId, customerName, customerPhone) {
  */
 async function processMessage(phoneNumber, message, propertyId = null) {
   try {
-    // Get or create conversation context
-    if (!conversationContext.has(phoneNumber)) {
-      conversationContext.set(phoneNumber, {
+    // Get customer history from Redis (or fallback to memory)
+    let persistentHistory = await getCustomerHistory(phoneNumber);
+
+    if (!persistentHistory) {
+      // Check fallback storage
+      persistentHistory = customerHistoryFallback.get(phoneNumber);
+    }
+
+    if (!persistentHistory) {
+      // Brand new customer - first time EVER contacting
+      persistentHistory = {
+        firstContact: new Date(),
+        lastContact: new Date(),
+        totalMessages: 1
+      };
+    } else {
+      // Returning customer - update history
+      persistentHistory.lastContact = new Date();
+      persistentHistory.totalMessages += 1;
+    }
+
+    // Save to Redis (or fallback to memory)
+    const saved = await setCustomerHistory(phoneNumber, persistentHistory);
+    if (!saved) {
+      // Save to fallback if Redis fails
+      customerHistoryFallback.set(phoneNumber, persistentHistory);
+    }
+
+    // Determine customer info for AI context
+    const customerInfo = {
+      isReturningCustomer: persistentHistory.totalMessages > 1,
+      lastContact: persistentHistory.lastContact.getTime(),
+      totalMessages: persistentHistory.totalMessages,
+      firstContact: persistentHistory.firstContact
+    };
+
+    console.log(`Customer info for ${phoneNumber}:`, {
+      isReturning: customerInfo.isReturningCustomer,
+      totalMessages: customerInfo.totalMessages,
+      daysSinceFirst: Math.floor((Date.now() - customerInfo.firstContact.getTime()) / (1000 * 60 * 60 * 24)),
+      usingRedis: saved
+    });
+
+    // Get conversation context from Redis (or fallback to memory)
+    let context = await getConversationContext(phoneNumber);
+
+    if (!context) {
+      // Check fallback storage
+      context = conversationContextFallback.get(phoneNumber);
+    }
+
+    if (!context) {
+      // Create new conversation context
+      context = {
         history: [],
         propertyId: propertyId,
         customerInfo: {},
         createdAt: new Date()
-      });
+      };
     }
-
-    const context = conversationContext.get(phoneNumber);
 
     // Add initial context if this is the first message and came from a property page
     if (context.history.length === 0 && propertyId) {
@@ -588,8 +747,14 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     const allProperties = await getAllProperties();
     const formattedProperties = formatPropertiesForAI(allProperties);
 
-    // Get AI response
-    const aiResponse = await getAIResponse(message, context.history, formattedProperties);
+    console.log(`Processing message - Customer status:`, {
+      isReturningCustomer: customerInfo.isReturningCustomer,
+      totalMessages: customerInfo.totalMessages,
+      hasActiveConversation: context.history.length > 0
+    });
+
+    // Get AI response with customer info
+    const aiResponse = await getAIResponse(message, context.history, formattedProperties, customerInfo);
 
     // Update conversation history
     context.history.push({
@@ -604,6 +769,13 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     // Keep only last 20 messages to avoid token limits
     if (context.history.length > 20) {
       context.history = context.history.slice(-20);
+    }
+
+    // Save conversation context to Redis (or fallback to memory)
+    const contextSaved = await setConversationContext(phoneNumber, context);
+    if (!contextSaved) {
+      // Save to fallback if Redis fails
+      conversationContextFallback.set(phoneNumber, context);
     }
 
     // Check if customer is EXPLICITLY asking for property information OR if AI says it will send
@@ -626,9 +798,66 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     const shouldSendDetails = (isRequestingInfo || cameFromPropertyPage || aiWillSend) && activeProperties.length > 0;
 
     if (shouldSendDetails) {
-      // Priority 1: If we have a propertyId in context from previous interaction
-      if (context.propertyId) {
-        propertyToSend = activeProperties.find(p => p.id === parseInt(context.propertyId));
+      // Priority 1: Try to match property name from message or AI response FIRST
+      // This takes precedence over context to allow customer to ask about different properties
+      // Normalize function to remove accents
+      const normalize = (str) => str.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      const normalizedMessage = normalize(message);
+      const normalizedAiResponse = normalize(aiResponse);
+
+      // Extract property type and location from message
+      const propertyTypes = ['sobrado', 'apartamento', 'casa', 'terreno', 'kitnet'];
+      const messagePropertyType = propertyTypes.find(type =>
+        normalizedMessage.includes(type) || normalizedAiResponse.includes(type)
+      );
+
+      console.log(`Searching for property - Type: ${messagePropertyType || 'any'}, Message: "${normalizedMessage}"`);
+
+      // First pass: Look for STRONG match (type + neighborhood)
+      if (messagePropertyType) {
+        propertyToSend = activeProperties.find(p => {
+          const title = normalize(p['Title'] || p['Título'] || p.title || '');
+          const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
+          const tipo = normalize(p['Type']?.value || p['Tipo']?.value || p['Type'] || p['Tipo'] || p.type || '');
+
+          const typeMatch = tipo.includes(messagePropertyType) || title.includes(messagePropertyType);
+
+          // Check neighborhood match
+          const neighborhoodWords = neighborhood.split(/[\s-]+/).filter(word => word.length > 3);
+          const neighborhoodMatch = neighborhoodWords.some(word =>
+            normalizedMessage.includes(word) || normalizedAiResponse.includes(word)
+          );
+
+          if (typeMatch && neighborhoodMatch) {
+            console.log(`✅ Strong match found: ${title} (type: ${tipo}, neighborhood: ${neighborhood})`);
+            return true;
+          }
+
+          return false;
+        });
+      }
+
+      // Second pass: Fallback to weak match only if no strong match found
+      if (!propertyToSend) {
+        propertyToSend = activeProperties.find(p => {
+          const title = normalize(p['Title'] || p['Título'] || p.title || '');
+
+          // Check title words
+          const titleWords = title.split(/[\s-]+/).filter(word => word.length > 3);
+          const titleMatch = titleWords.some(word =>
+            normalizedMessage.includes(word) || normalizedAiResponse.includes(word)
+          );
+
+          if (titleMatch) {
+            console.log(`⚠️  Weak match found: ${title}`);
+            return true;
+          }
+
+          return false;
+        });
       }
 
       // Priority 2: If came from property page with specific ID
@@ -640,28 +869,10 @@ async function processMessage(phoneNumber, message, propertyId = null) {
         }
       }
 
-      // Priority 3: Try to match property name from message or AI response
-      if (!propertyToSend && (isRequestingInfo || aiWillSend)) {
-        const lowerMessage = message.toLowerCase();
-        const lowerAiResponse = aiResponse.toLowerCase();
-
-        propertyToSend = activeProperties.find(p => {
-          const title = (p['Title'] || p['Título'] || p.title || '').toLowerCase();
-          const neighborhood = (p['neighborhood'] || p['Bairro'] || p.bairro || '').toLowerCase();
-
-          // Check if message or AI response contains property title or neighborhood
-          const titleWords = title.split(' ').filter(word => word.length > 4);
-          const neighborhoodWords = neighborhood.split(' ').filter(word => word.length > 4);
-
-          const titleMatch = titleWords.some(word =>
-            lowerMessage.includes(word) || lowerAiResponse.includes(word)
-          );
-          const neighborhoodMatch = neighborhoodWords.some(word =>
-            lowerMessage.includes(word) || lowerAiResponse.includes(word)
-          );
-
-          return titleMatch || neighborhoodMatch;
-        });
+      // Priority 3: Use context property ID only if no specific property requested
+      if (!propertyToSend && context.propertyId && !messagePropertyType) {
+        propertyToSend = activeProperties.find(p => p.id === parseInt(context.propertyId));
+        console.log(`Using property from context: ${propertyToSend?.['Title'] || propertyToSend?.['Título']} (ID: ${context.propertyId})`);
       }
 
       // Set flags to send property details
@@ -698,27 +909,44 @@ async function processMessage(phoneNumber, message, propertyId = null) {
 
 /**
  * Clean up old conversations (call this periodically)
+ * NOTE: This only cleans temporary conversation context from fallback memory
+ * Redis handles TTL automatically (6 hours)
  */
-function cleanupOldConversations() {
-  const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+async function cleanupOldConversations() {
+  const maxAge = 6 * 60 * 60 * 1000; // 6 hours
   const now = new Date();
 
-  for (const [phoneNumber, context] of conversationContext.entries()) {
+  // Clean up fallback memory storage
+  for (const [phoneNumber, context] of conversationContextFallback.entries()) {
     if (now - context.createdAt > maxAge) {
-      conversationContext.delete(phoneNumber);
+      console.log(`Cleaning up fallback conversation context for ${phoneNumber} (${Math.floor((now - context.createdAt) / 1000 / 60 / 60)} hours old)`);
+      conversationContextFallback.delete(phoneNumber);
     }
   }
+
+  // Get stats from Redis
+  const stats = await getRedisStats();
+  console.log('Storage stats:', {
+    redis: stats,
+    fallback: {
+      customers: customerHistoryFallback.size,
+      conversations: conversationContextFallback.size
+    }
+  });
 }
 
 // Clean up every hour
 setInterval(cleanupOldConversations, 60 * 60 * 1000);
 
 /**
- * Get all active conversations
+ * Get all active conversations (from Redis and fallback)
  */
-function getAllConversations() {
+async function getAllConversations() {
   const conversations = [];
-  for (const [phoneNumber, context] of conversationContext.entries()) {
+
+  // This is a simplified version - in production you'd query Redis for all conversation keys
+  // For now, we return fallback data
+  for (const [phoneNumber, context] of conversationContextFallback.entries()) {
     conversations.push({
       phoneNumber,
       messageCount: context.history.length,
@@ -727,14 +955,19 @@ function getAllConversations() {
       customerInfo: context.customerInfo
     });
   }
+
   return conversations;
 }
 
 /**
- * Get specific conversation
+ * Get specific conversation (from Redis or fallback)
  */
-function getConversation(phoneNumber) {
-  return conversationContext.get(phoneNumber) || null;
+async function getConversation(phoneNumber) {
+  let context = await getConversationContext(phoneNumber);
+  if (!context) {
+    context = conversationContextFallback.get(phoneNumber);
+  }
+  return context || null;
 }
 
 export {
