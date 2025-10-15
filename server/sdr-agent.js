@@ -205,9 +205,11 @@ ESTRATÉGIA DE ATENDIMENTO:
 - PERGUNTE se quer ver fotos de algum deles
 
 📸 FASE 3 - ENVIO DE DETALHES (quando cliente pedir fotos):
-- Quando o cliente pedir fotos de um imóvel específico, NÃO RESPONDA NADA
-- O sistema detectará automaticamente e enviará as fotos + detalhes + CTA de agendamento
-- Você só deve responder se o cliente fizer outra pergunta que não seja pedido de foto
+- Quando o cliente pedir fotos de um imóvel específico, responda APENAS: "👍"
+- NUNCA escreva frases como "vou enviar", "segue as fotos", "[sistema envia]", ou qualquer variação
+- O sistema AUTOMATICAMENTE enviará as fotos + detalhes completos + CTA de agendamento
+- Você APENAS responde com "👍" para confirmar que recebeu o pedido
+- Se o cliente fizer OUTRA pergunta junto com o pedido de foto, aí sim responda a pergunta também
 
 IMPORTANTE - SELEÇÃO DE IMÓVEIS:
 - Use a CIDADE como fator PRINCIPAL para escolher os imóveis (se cliente pediu Itaquaquecetuba, liste APENAS de Itaquá)
@@ -525,7 +527,10 @@ function aiWillSendPropertyDetails(aiResponse) {
     'segue',
     'seguem',
     'aqui está',
-    'aqui estão'
+    'aqui estão',
+    'sistema envia',
+    '[sistema',
+    'enviando'
   ];
 
   const lowerResponse = aiResponse.toLowerCase();

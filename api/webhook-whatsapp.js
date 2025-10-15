@@ -32,6 +32,18 @@ export default async function handler(req, res) {
         // Processar mensagem com IA
         const result = await processMessage(phoneNumber, message);
 
+        // Filtrar respostas problemáticas da IA quando vai enviar fotos
+        if (result.shouldSendPropertyDetails && result.response) {
+          const problemIndicators = ['sistema envia', '[sistema', 'vou enviar', 'já envio', 'enviando'];
+          const lowerResponse = result.response.toLowerCase();
+
+          if (problemIndicators.some(indicator => lowerResponse.includes(indicator))) {
+            // Substituir por apenas um emoji de confirmação
+            result.response = '👍';
+            console.log('Filtered AI response that tried to announce photo sending');
+          }
+        }
+
         // Verificar se cliente quer agendar
         if (result.schedulingInfo && result.schedulingInfo.wantsToSchedule) {
           console.log(`Customer wants to schedule visit for property: ${result.schedulingInfo.propertyId}`);
