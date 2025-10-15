@@ -848,11 +848,15 @@ async function processMessage(phoneNumber, message, propertyId = null) {
 
           const typeMatch = tipo.includes(messagePropertyType) || title.includes(messagePropertyType);
 
-          // Check neighborhood match
+          // Check for FULL neighborhood match first (most precise)
+          const fullNeighborhoodMatch = neighborhood.length > 0 && normalizedMessage.includes(neighborhood);
+
+          // Or check individual neighborhood words
           const neighborhoodWords = neighborhood.split(/[\s-]+/).filter(word => word.length > 3);
-          const neighborhoodMatch = neighborhoodWords.some(word =>
-            normalizedMessage.includes(word) || normalizedAiResponse.includes(word)
-          );
+          const partialNeighborhoodMatch = neighborhoodWords.length >= 2 &&
+            neighborhoodWords.filter(word => normalizedMessage.includes(word) || normalizedAiResponse.includes(word)).length >= 2;
+
+          const neighborhoodMatch = fullNeighborhoodMatch || partialNeighborhoodMatch;
 
           if (typeMatch && neighborhoodMatch) {
             console.log(`✅ Strong match found: ${title} (type: ${tipo}, neighborhood: ${neighborhood})`);
@@ -872,22 +876,27 @@ async function processMessage(phoneNumber, message, propertyId = null) {
           const lastAIText = normalize(lastAIMessages[lastAIMessages.length - 1].content);
           console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 100)}..."`);
 
-          // Try to find property by matching title/neighborhood from last AI message
+          // Try to find property by matching FULL neighborhood name (not just words)
           propertyToSend = activeProperties.find(p => {
             const title = normalize(p['Title'] || p['Título'] || p.title || '');
             const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
 
-            // Check if property title or neighborhood appears in last AI message
-            const titleWords = title.split(/[\s-]+/).filter(word => word.length > 3);
-            const neighborhoodWords = neighborhood.split(/[\s-]+/).filter(word => word.length > 3);
-
-            const inLastMessage = titleWords.some(word => lastAIText.includes(word)) ||
-                                 neighborhoodWords.some(word => lastAIText.includes(word));
-
-            if (inLastMessage) {
-              console.log(`✅ Found property from last AI message: ${title}`);
+            // Match full neighborhood name (more precise)
+            if (neighborhood.length > 0 && lastAIText.includes(neighborhood)) {
+              console.log(`✅ Found property from last AI message (neighborhood match): ${title} - ${neighborhood}`);
               return true;
             }
+
+            // Match title if it's distinctive enough (at least 2 words from title)
+            const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
+            if (titleWords.length >= 2) {
+              const matchedWords = titleWords.filter(word => lastAIText.includes(word));
+              if (matchedWords.length >= 2) {
+                console.log(`✅ Found property from last AI message (title match): ${title}`);
+                return true;
+              }
+            }
+
             return false;
           });
         }
