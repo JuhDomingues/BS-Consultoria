@@ -66,7 +66,7 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('propertyId', propertyId);
+        formData.append('propertyId', propertyId || 'temp');
         formData.append('fileName', fileName);
 
         // Upload to server - use relative URL for Vercel, absolute for local dev
@@ -74,16 +74,21 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
           ? '/api/upload-image'
           : 'http://localhost:3001/api/upload-image';
 
+        console.log(`Uploading to: ${uploadUrl}, propertyId: ${propertyId || 'temp'}`);
+
         const response = await fetch(uploadUrl, {
           method: 'POST',
           body: formData,
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to upload ${file.name}`);
+          const errorText = await response.text();
+          console.error(`Upload failed for ${file.name}:`, errorText);
+          throw new Error(`Failed to upload ${file.name}: ${response.status} ${errorText}`);
         }
 
         const data = await response.json();
+        console.log('Upload response:', data);
         uploadedUrls.push(data.url);
       }
 
