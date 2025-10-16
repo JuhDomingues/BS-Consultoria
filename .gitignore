@@ -23,3 +23,16 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# PM2
+.pm2
+
+# Temporary files
+temp/
+tmp/

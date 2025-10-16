@@ -1,0 +1,213 @@
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const tempPath = path.join(__dirname, '..', 'dist', 'imoveis', 'temp');
+
+    if (!fs.existsSync(tempPath)) {
+      fs.mkdirSync(tempPath, { recursive: true });
+    }
+
+    cb(null, tempPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${Date.now()}_${file.originalname}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      return cb(new Error('Apenas imagens são permitidas!'), false);
+    }
+    cb(null, true);
+  }
+});
+
+// API Routes
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: 'production',
+    nodeVersion: process.version
+  });
+});
+
+// Upload endpoint
+app.post('/api/upload-image', upload.single('file'), (req, res) => {
+  try {
+    console.log('Upload request received');
+
+    if (!req.file) {
+      console.error('No file in request');
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    const propertyId = req.body.propertyId || 'temp';
+    const fileName = req.body.fileName || req.file.filename;
+
+    console.log('File details:', {
+      originalName: req.file.originalname,
+      size: req.file.size,
+      propertyId,
+      fileName
+    });
+
+    // Move file from temp to final destination
+    const tempFilePath = req.file.path;
+    const finalDir = path.join(__dirname, '..', 'dist', 'imoveis', propertyId);
+    const finalFilePath = path.join(finalDir, fileName);
+
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(finalDir)) {
+      fs.mkdirSync(finalDir, { recursive: true });
+    }
+
+    // Move file
+    fs.renameSync(tempFilePath, finalFilePath);
+
+    const url = `/imoveis/${propertyId}/${fileName}`;
+
+    console.log('Upload successful:', url);
+
+    res.json({
+      success: true,
+      url: url,
+      message: 'Imagem enviada com sucesso!'
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      error: 'Erro ao fazer upload da imagem',
+      details: error.message
+    });
+  }
+});
+
+// Delete image endpoint
+app.post('/api/delete-image', (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'URL da imagem não fornecida' });
+    }
+
+    const filePath = path.join(__dirname, '..', 'dist', imageUrl);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true, message: 'Imagem deletada com sucesso!' });
+    } else {
+      res.status(404).json({ error: 'Imagem não encontrada' });
+    }
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ error: 'Erro ao deletar imagem' });
+  }
+});
+
+// Import other API routes if they exist
+const apiRoutes = [
+  'health',
+  'reminders',
+  'schedule-visit',
+  'webhook-calendly',
+  'webhook-whatsapp'
+];
+
+for (const route of apiRoutes) {
+  const routePath = path.join(__dirname, '..', 'api', `${route}.js`);
+  if (fs.existsSync(routePath)) {
+    try {
+      const module = await import(`file://${routePath}`);
+      if (module.default) {
+        app.use(`/api/${route}`, module.default);
+        console.log(`✓ Loaded API route: /api/${route}`);
+      }
+    } catch (error) {
+      console.warn(`⚠ Could not load API route ${route}:`, error.message);
+    }
+  }
+}
+
+// Serve static files from dist directory
+const distPath = path.join(__dirname, '..', 'dist');
+app.use(express.static(distPath));
+
+// Serve imoveis directory
+const imoveisPath = path.join(distPath, 'imoveis');
+if (!fs.existsSync(imoveisPath)) {
+  fs.mkdirSync(imoveisPath, { recursive: true });
+}
+app.use('/imoveis', express.static(imoveisPath));
+
+// SPA fallback - serve index.html for all other routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    error: 'Erro interno do servidor',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   🚀 BS Consultoria Server                                ║
+║                                                           ║
+║   Server running on: http://0.0.0.0:${PORT}                 ║
+║   Environment: production                                 ║
+║   Node version: ${process.version}                           ║
+║                                                           ║
+║   API Endpoints:                                          ║
+║   - GET  /api/health                                      ║
+║   - POST /api/upload-image                                ║
+║   - POST /api/delete-image                                ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+  `);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  process.exit(0);
+});
