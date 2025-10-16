@@ -69,8 +69,12 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
         formData.append('propertyId', propertyId);
         formData.append('fileName', fileName);
 
-        // Upload to server
-        const response = await fetch('http://localhost:3001/api/upload-image', {
+        // Upload to server - use relative URL for Vercel, absolute for local dev
+        const uploadUrl = import.meta.env.PROD
+          ? '/api/upload-image'
+          : 'http://localhost:3001/api/upload-image';
+
+        const response = await fetch(uploadUrl, {
           method: 'POST',
           body: formData,
         });

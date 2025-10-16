@@ -17,6 +17,10 @@
     "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "api/upload-image.js": {
+      "memory": 3008,
+      "maxDuration": 60
     }
   }
 }
