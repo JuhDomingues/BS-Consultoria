@@ -54,9 +54,9 @@ const PropertyCarousel = ({ title, properties }: PropertyCarouselProps) => {
         </div>
 
         {/* Carousel */}
-        <div 
+        <div
           ref={scrollRef}
-          className="carousel-container"
+          className={`carousel-container ${properties.length <= 3 ? 'justify-center md:justify-start' : ''}`}
         >
           {properties.map((property) => (
             <PropertyCard key={property.id} {...property} />

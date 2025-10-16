@@ -23,7 +23,7 @@ const HeroSection = () => {
   };
 
   const goToPropertyDetail = () => {
-    navigate('/imovel/3500447');
+    navigate('/imovel/125');
   };
 
   return (

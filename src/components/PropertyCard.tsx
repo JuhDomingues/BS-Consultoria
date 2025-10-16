@@ -33,9 +33,9 @@ const PropertyCard = ({
     navigate(`/imovel/${id}`);
   };
   return (
-    <div className="property-card group min-w-[300px] cursor-pointer" onClick={handleCardClick}>
-      {/* Image Container */}
-      <div className="relative h-48 overflow-hidden">
+    <div className="property-card group w-[320px] flex-shrink-0 cursor-pointer" onClick={handleCardClick}>
+      {/* Image Container - Square Format */}
+      <div className="relative aspect-square overflow-hidden rounded-t-lg">
         <img
           src={primaryImage}
           alt={title}

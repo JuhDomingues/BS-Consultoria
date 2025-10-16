@@ -3,13 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, RefreshCw, Home, MessageSquare, LogOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, RefreshCw, Home, MessageSquare, LogOut, Search, Eye, Filter } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Property } from "@/utils/parsePropertyData";
 import { PropertyForm } from "@/components/PropertyForm";
 import { PropertyCreationDialog } from "@/components/PropertyCreationDialog";
 import { AIPropertyForm } from "@/components/AIPropertyForm";
 import { PropertyTable } from "@/components/PropertyTable";
+import { ConversationViewer } from "@/components/ConversationViewer";
+import { SDRMetrics } from "@/components/SDRMetrics";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   fetchAllPropertiesAdmin,
   createProperty,
@@ -22,10 +33,28 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Conversation {
   phoneNumber: string;
+  firstContact: string;
+  lastContact: string;
+  totalMessages: number;
   messageCount: number;
-  lastActivity: string;
   propertyId?: number;
-  customerInfo?: any;
+  hasActiveConversation: boolean;
+  conversationAge?: number | null;
+}
+
+interface SDRStats {
+  totalCustomers: number;
+  activeConversations: number;
+  totalInteractions: number;
+  customersToday: number;
+  customersThisWeek: number;
+  propertiesWithInterest: number;
+  avgMessagesPerCustomer: number;
+  redis: {
+    connected: boolean;
+    customers: number;
+    activeConversations: number;
+  };
 }
 
 const Admin = () => {
@@ -43,6 +72,14 @@ const Admin = () => {
   // SDR Conversations state
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [sdrStats, setSdrStats] = useState<SDRStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [conversationViewerOpen, setConversationViewerOpen] = useState(false);
+
+  // Filters for conversations
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   const loadProperties = async () => {
     try {
@@ -84,6 +121,77 @@ const Admin = () => {
     } finally {
       setConversationsLoading(false);
     }
+  };
+
+  const loadSDRStats = async () => {
+    try {
+      setStatsLoading(true);
+      const response = await fetch('http://localhost:3002/api/sdr-stats');
+      const data = await response.json();
+
+      if (data.success) {
+        setSdrStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error loading SDR stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const loadAllSDRData = () => {
+    loadConversations();
+    loadSDRStats();
+  };
+
+  // Auto-refresh conversations every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadConversations();
+      loadSDRStats();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleViewConversation = (phoneNumber: string) => {
+    setSelectedConversation(phoneNumber);
+    setConversationViewerOpen(true);
+  };
+
+  // Filter conversations
+  const filteredConversations = conversations.filter((conv) => {
+    const matchesSearch = conv.phoneNumber.includes(searchQuery);
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && conv.hasActiveConversation) ||
+      (statusFilter === "inactive" && !conv.hasActiveConversation);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const formatPhoneNumber = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 13) {
+      return `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9)}`;
+    }
+    return phone;
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Agora mesmo';
+    if (diffMins < 60) return `${diffMins}min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    if (diffDays === 1) return 'Ontem';
+    if (diffDays < 7) return `${diffDays} dias atrás`;
+    return date.toLocaleDateString('pt-BR');
   };
 
   const handleCreateProperty = async (data: Partial<Property>) => {
@@ -313,18 +421,59 @@ const Admin = () => {
 
           {/* Conversations Tab */}
           <TabsContent value="conversations">
+            {/* SDR Metrics */}
+            <SDRMetrics stats={sdrStats} loading={statsLoading} />
+
+            {/* Filters and Actions */}
+            <Card className="mb-4">
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por número de telefone..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                    <SelectTrigger className="w-full md:w-[200px]">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="active">Ativas</SelectItem>
+                      <SelectItem value="inactive">Inativas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={loadAllSDRData}
+                    disabled={conversationsLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${conversationsLoading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Conversations List */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle>Conversas Ativas do SDR</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadConversations}
-                  disabled={conversationsLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${conversationsLoading ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    Conversas do Agente SDR
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      ({filteredConversations.length} {filteredConversations.length === 1 ? 'conversa' : 'conversas'})
+                    </span>
+                  </CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    Atualiza automaticamente a cada 30s
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 {conversationsLoading ? (
@@ -332,32 +481,75 @@ const Admin = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
                     <p className="text-sm text-muted-foreground">Carregando conversas...</p>
                   </div>
-                ) : conversations.length === 0 ? (
+                ) : filteredConversations.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>Nenhuma conversa ativa no momento</p>
-                    <p className="text-sm mt-2">As conversas aparecerão aqui quando clientes enviarem mensagens</p>
+                    <p>
+                      {searchQuery || statusFilter !== "all"
+                        ? "Nenhuma conversa encontrada com os filtros selecionados"
+                        : "Nenhuma conversa registrada ainda"}
+                    </p>
+                    <p className="text-sm mt-2">
+                      As conversas aparecerão aqui quando clientes enviarem mensagens
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {conversations.map((conv) => (
-                      <Card key={conv.phoneNumber} className="border-l-4 border-l-primary">
-                        <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    {filteredConversations.map((conv) => (
+                      <Card
+                        key={conv.phoneNumber}
+                        className={`border-l-4 hover:shadow-md transition-shadow cursor-pointer ${
+                          conv.hasActiveConversation
+                            ? 'border-l-green-500 bg-green-50/50'
+                            : 'border-l-gray-300'
+                        }`}
+                        onClick={() => handleViewConversation(conv.phoneNumber)}
+                      >
+                        <CardContent className="pt-4">
                           <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-semibold text-lg">📱 {conv.phoneNumber}</p>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {conv.messageCount} mensagens
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <p className="font-semibold text-lg">
+                                  📱 {formatPhoneNumber(conv.phoneNumber)}
+                                </p>
+                                {conv.hasActiveConversation && (
+                                  <Badge variant="default" className="text-xs">
+                                    Ativa
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="space-y-1 text-sm text-muted-foreground">
+                                <p>💬 {conv.totalMessages} mensagens no total • {conv.messageCount} na conversa atual</p>
+                                {conv.propertyId && (
+                                  <p className="text-primary font-medium">
+                                    🏠 Interessado no imóvel #{conv.propertyId}
+                                  </p>
+                                )}
+                                <p>📅 Primeiro contato: {new Date(conv.firstContact).toLocaleDateString('pt-BR')}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground mb-2">
+                                Última atividade
                               </p>
-                              {conv.propertyId && (
-                                <p className="text-sm text-primary mt-1">
-                                  Interessado no imóvel #{conv.propertyId}
+                              <p className="text-sm font-medium">{formatTimeAgo(conv.lastContact)}</p>
+                              {conv.conversationAge !== null && conv.conversationAge !== undefined && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Conversa de {conv.conversationAge}min atrás
                                 </p>
                               )}
-                            </div>
-                            <div className="text-right text-sm text-muted-foreground">
-                              <p>Última atividade:</p>
-                              <p>{new Date(conv.lastActivity).toLocaleString('pt-BR')}</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewConversation(conv.phoneNumber);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Ver histórico
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -393,6 +585,13 @@ const Admin = () => {
         open={aiFormOpen}
         onOpenChange={setAiFormOpen}
         onSubmit={handleCreateProperty}
+      />
+
+      {/* Conversation Viewer Dialog */}
+      <ConversationViewer
+        phoneNumber={selectedConversation}
+        open={conversationViewerOpen}
+        onOpenChange={setConversationViewerOpen}
       />
     </div>
   );

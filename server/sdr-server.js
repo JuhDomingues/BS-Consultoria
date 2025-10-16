@@ -169,16 +169,42 @@ app.post('/api/initiate-conversation', async (req, res) => {
 });
 
 /**
- * API endpoint to get all active conversations
+ * API endpoint to get all active conversations (from Redis and fallback)
  */
 app.get('/api/conversations', async (req, res) => {
   try {
-    const { getAllConversations } = await import('./sdr-agent.js');
-    const conversations = getAllConversations();
-    res.json({ success: true, conversations });
+    const { getAllCustomers, getCustomerHistory, getConversationContext } = await import('./redis-client.js');
+
+    // Get all customer phone numbers from Redis
+    const phoneNumbers = await getAllCustomers();
+
+    const conversations = [];
+
+    for (const phoneNumber of phoneNumbers) {
+      const history = await getCustomerHistory(phoneNumber);
+      const context = await getConversationContext(phoneNumber);
+
+      if (history) {
+        conversations.push({
+          phoneNumber,
+          firstContact: history.firstContact,
+          lastContact: history.lastContact,
+          totalMessages: history.totalMessages,
+          messageCount: context?.history?.length || 0,
+          propertyId: context?.propertyId,
+          hasActiveConversation: !!context,
+          conversationAge: context ? Math.floor((Date.now() - new Date(context.createdAt).getTime()) / 1000 / 60) : null // minutes
+        });
+      }
+    }
+
+    // Sort by last contact (most recent first)
+    conversations.sort((a, b) => new Date(b.lastContact).getTime() - new Date(a.lastContact).getTime());
+
+    res.json({ success: true, conversations, total: conversations.length });
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    res.status(500).json({ error: 'Failed to fetch conversations' });
+    res.status(500).json({ error: 'Failed to fetch conversations', message: error.message });
   }
 });
 
@@ -188,21 +214,106 @@ app.get('/api/conversations', async (req, res) => {
 app.get('/api/conversations/:phoneNumber', async (req, res) => {
   try {
     const { phoneNumber } = req.params;
-    const { getConversation } = await import('./sdr-agent.js');
-    const conversation = getConversation(phoneNumber);
+    const { getCustomerHistory, getConversationContext } = await import('./redis-client.js');
 
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+    const history = await getCustomerHistory(phoneNumber);
+    const context = await getConversationContext(phoneNumber);
+
+    if (!history) {
+      return res.status(404).json({ error: 'Customer not found', success: false });
     }
+
+    // Format conversation messages for better readability
+    const messages = context?.history?.map((msg, index) => ({
+      id: index,
+      role: msg.role,
+      content: msg.content,
+      timestamp: context.createdAt // Approximate, you could add timestamps per message if needed
+    })) || [];
 
     res.json({
       success: true,
       phoneNumber,
-      conversation
+      customer: {
+        firstContact: history.firstContact,
+        lastContact: history.lastContact,
+        totalMessages: history.totalMessages,
+        daysSinceFirstContact: Math.floor((Date.now() - new Date(history.firstContact).getTime()) / (1000 * 60 * 60 * 24)),
+        isActive: !!context
+      },
+      conversation: {
+        propertyId: context?.propertyId,
+        createdAt: context?.createdAt,
+        messageCount: messages.length,
+        messages: messages
+      }
     });
   } catch (error) {
     console.error('Error fetching conversation:', error);
-    res.status(500).json({ error: 'Failed to fetch conversation' });
+    res.status(500).json({ error: 'Failed to fetch conversation', message: error.message, success: false });
+  }
+});
+
+/**
+ * API endpoint to get SDR statistics and metrics
+ */
+app.get('/api/sdr-stats', async (req, res) => {
+  try {
+    const { getAllCustomers, getCustomerHistory, getConversationContext, getRedisStats } = await import('./redis-client.js');
+
+    const redisStats = await getRedisStats();
+    const phoneNumbers = await getAllCustomers();
+
+    let totalCustomers = 0;
+    let activeConversations = 0;
+    let totalInteractions = 0;
+    let customersToday = 0;
+    let customersThisWeek = 0;
+    let propertiesWithInterest = new Set();
+
+    const now = Date.now();
+    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+    for (const phoneNumber of phoneNumbers) {
+      const history = await getCustomerHistory(phoneNumber);
+      const context = await getConversationContext(phoneNumber);
+
+      if (history) {
+        totalCustomers++;
+        totalInteractions += history.totalMessages;
+
+        const lastContactTime = new Date(history.lastContact).getTime();
+        if (lastContactTime >= oneDayAgo) customersToday++;
+        if (lastContactTime >= oneWeekAgo) customersThisWeek++;
+
+        if (context) {
+          activeConversations++;
+          if (context.propertyId) {
+            propertiesWithInterest.add(context.propertyId);
+          }
+        }
+      }
+    }
+
+    const avgMessagesPerCustomer = totalCustomers > 0 ? (totalInteractions / totalCustomers).toFixed(1) : 0;
+
+    res.json({
+      success: true,
+      stats: {
+        totalCustomers,
+        activeConversations,
+        totalInteractions,
+        customersToday,
+        customersThisWeek,
+        propertiesWithInterest: propertiesWithInterest.size,
+        avgMessagesPerCustomer: parseFloat(avgMessagesPerCustomer),
+        redis: redisStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching SDR stats:', error);
+    res.status(500).json({ error: 'Failed to fetch SDR stats', message: error.message, success: false });
   }
 });
 

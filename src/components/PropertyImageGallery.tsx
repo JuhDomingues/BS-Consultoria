@@ -81,14 +81,14 @@ const PropertyImageGallery = ({ images, title }: PropertyImageGalleryProps) => {
   return (
     <>
       
-      {/* Main Gallery Grid */}
+      {/* Main Gallery Grid - Square Format */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Main Image */}
         <div className="md:col-span-2 lg:col-span-2 relative group cursor-pointer">
           <img
             src={images[featuredImageIndex]}
             alt={`${title} - Imagem principal`}
-            className="w-full h-80 md:h-96 object-cover rounded-lg"
+            className="w-full aspect-square object-cover rounded-lg"
             onClick={() => openGallery(featuredImageIndex)}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -96,8 +96,8 @@ const PropertyImageGallery = ({ images, title }: PropertyImageGalleryProps) => {
             }}
           />
           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -111,19 +111,19 @@ const PropertyImageGallery = ({ images, title }: PropertyImageGalleryProps) => {
         </div>
 
         {/* Thumbnail Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {images.slice(0, 4).map((image, index) => (
-            <div 
-              key={index} 
+        <div className="grid grid-cols-2 gap-4 h-fit">
+          {images.slice(0, 6).map((image, index) => (
+            <div
+              key={index}
               className={`relative group cursor-pointer transition-all duration-200 ${
-                index === featuredImageIndex ? 'ring-4 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50'
+                index === featuredImageIndex ? 'ring-4 ring-primary' : 'hover:ring-2 hover:ring-primary/50'
               }`}
               onClick={() => setFeaturedImage(index)}
             >
               <img
                 src={image}
                 alt={`${title} - Imagem ${index + 1}`}
-                className={`w-full h-36 md:h-44 object-cover rounded-lg transition-all duration-200 ${
+                className={`w-full aspect-square object-cover rounded-lg transition-all duration-200 ${
                   index === featuredImageIndex ? 'opacity-100' : 'opacity-70 hover:opacity-100'
                 }`}
                 onError={(e) => {
@@ -132,8 +132,8 @@ const PropertyImageGallery = ({ images, title }: PropertyImageGalleryProps) => {
                 }}
               />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
-              {index === 3 && images.length > 4 && (
-                <div 
+              {index === 5 && images.length > 6 && (
+                <div
                   className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center cursor-pointer z-10"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -141,7 +141,7 @@ const PropertyImageGallery = ({ images, title }: PropertyImageGalleryProps) => {
                   }}
                 >
                   <span className="text-white font-semibold text-lg">
-                    +{images.length - 4} fotos
+                    +{images.length - 6} fotos
                   </span>
                 </div>
               )}
