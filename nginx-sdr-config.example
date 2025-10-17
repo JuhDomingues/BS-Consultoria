@@ -1,0 +1,136 @@
+# Nginx Configuration for BS Consultoria with SDR Agent
+# File: /etc/nginx/sites-available/bs-consultoria
+
+server {
+    listen 80;
+    server_name bsconsultoriadeimoveis.com.br www.bsconsultoriadeimoveis.com.br;
+
+    # Limite de upload para imagens
+    client_max_body_size 10M;
+
+    # Proxy para o servidor principal (porta 3000)
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # ========================================
+    # SDR Agent Webhook Configuration
+    # ========================================
+
+    # Webhook do WhatsApp (Evolution API)
+    location /webhook/whatsapp {
+        proxy_pass http://localhost:3002/webhook/whatsapp;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Aumentar timeout para processamento da IA
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Webhook do Calendly (opcional, se usar)
+    location /webhook/calendly {
+        proxy_pass http://localhost:3002/webhook/calendly;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ========================================
+    # SDR Agent API Endpoints (para testes)
+    # ========================================
+
+    # Health check do SDR
+    location /api/sdr-health {
+        proxy_pass http://localhost:3002/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Teste de IA (opcional, pode remover em produção)
+    location /api/test-ai {
+        proxy_pass http://localhost:3002/api/test-ai;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Conversas ativas (monitoramento)
+    location /api/sdr/conversations {
+        proxy_pass http://localhost:3002/api/conversations;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Estatísticas do SDR (monitoramento)
+    location /api/sdr/stats {
+        proxy_pass http://localhost:3002/api/sdr-stats;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # ========================================
+    # Cache Configuration
+    # ========================================
+
+    # Cache para arquivos estáticos
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://localhost:3000;
+        proxy_cache_valid 200 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+# ========================================
+# SSL Configuration (se usar Let's Encrypt)
+# ========================================
+# Depois de configurar SSL com certbot, esta seção será adicionada automaticamente:
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name bsconsultoriadeimoveis.com.br www.bsconsultoriadeimoveis.com.br;
+#
+#     ssl_certificate /etc/letsencrypt/live/bsconsultoriadeimoveis.com.br/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/bsconsultoriadeimoveis.com.br/privkey.pem;
+#
+#     # ... rest of the configuration same as above ...
+# }
+#
+# server {
+#     listen 80;
+#     server_name bsconsultoriadeimoveis.com.br www.bsconsultoriadeimoveis.com.br;
+#     return 301 https://$server_name$request_uri;
+# }
+
+# ========================================
+# Installation Instructions
+# ========================================
+#
+# 1. Copy this file to Nginx sites-available:
+#    sudo cp nginx-sdr-config.example /etc/nginx/sites-available/bs-consultoria
+#
+# 2. Create symbolic link to sites-enabled:
+#    sudo ln -s /etc/nginx/sites-available/bs-consultoria /etc/nginx/sites-enabled/
+#
+# 3. Test Nginx configuration:
+#    sudo nginx -t
+#
+# 4. Reload Nginx:
+#    sudo systemctl reload nginx
+#
+# 5. Configure SSL with Let's Encrypt:
+#    sudo certbot --nginx -d bsconsultoriadeimoveis.com.br -d www.bsconsultoriadeimoveis.com.br
