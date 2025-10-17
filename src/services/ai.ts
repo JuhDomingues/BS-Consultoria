@@ -182,9 +182,10 @@ IMPORTANTE:
 - O título DEVE incluir o nome do bairro/região
 - A descrição DEVE mencionar a localização fornecida`;
 
-    // Call Claude API through our server to avoid CORS issues
+    // Call API through our server - use production URL if available
     console.log('Calling AI endpoint...');
-    const response = await fetch('http://localhost:3001/api/generate-with-ai', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiUrl}/api/generate-with-ai`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -244,7 +245,8 @@ IMPORTANTE:
       formData.append('fileName', fileName);
 
       console.log(`Uploading image ${i + 1}/${input.images.length}...`);
-      const uploadResponse = await fetch('http://localhost:3001/api/upload-image', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const uploadResponse = await fetch(`${apiUrl}/api/upload-image`, {
         method: 'POST',
         body: formData,
       });

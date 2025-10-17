@@ -69,8 +69,9 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
         formData.append('propertyId', propertyId || 'temp');
         formData.append('fileName', fileName);
 
-        // Upload to server - always use local upload server (runs on VPS in production)
-        const uploadUrl = 'http://localhost:3001/api/upload-image';
+        // Upload to server - use production API URL if available
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const uploadUrl = `${apiUrl}/api/upload-image`;
 
         console.log(`Uploading to: ${uploadUrl}, propertyId: ${propertyId || 'temp'}`);
 
