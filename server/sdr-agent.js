@@ -619,8 +619,8 @@ ${description}
       }
 
       if (imagePaths.length > 0) {
-        // Base URL for images (use VPS domain, not Vercel)
-        const BASE_URL = process.env.SITE_BASE_URL || 'https://bsconsultoriadeimoveis.com.br';
+        // Base URL for images (use VPS domain where images are hosted, not Vercel frontend)
+        const IMAGES_BASE_URL = process.env.IMAGES_BASE_URL || process.env.SITE_BASE_URL || 'https://bsconsultoriadeimoveis.com.br';
 
         // Send up to 3 images
         const imagesToSend = imagePaths.slice(0, 3);
@@ -632,7 +632,10 @@ ${description}
 
           // Convert relative path to absolute URL
           if (imageUrl.startsWith('/')) {
-            imageUrl = BASE_URL + imageUrl;
+            imageUrl = IMAGES_BASE_URL + imageUrl;
+          } else if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+            // If it's not a full URL and doesn't start with /, prepend IMAGES_BASE_URL
+            imageUrl = IMAGES_BASE_URL + '/' + imageUrl;
           }
 
           console.log(`Image ${i + 1} URL:`, imageUrl);

@@ -391,3 +391,37 @@ export async function fetchAllPropertiesAdmin(): Promise<Property[]> {
     throw error;
   }
 }
+
+/**
+ * Move images from temporary folder to property folder with real ID
+ */
+export async function movePropertyImages(tempId: string, realId: string): Promise<string[]> {
+  try {
+    // Always use local upload server (runs on VPS in production)
+    const moveUrl = 'http://localhost:3001/api/move-images';
+
+    console.log(`Moving images from ${tempId} to ${realId}...`);
+
+    const response = await fetch(moveUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tempId, realId }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Move images error:', errorText);
+      throw new Error(`Failed to move images: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log(`✅ Images moved successfully:`, data);
+
+    return data.newUrls || [];
+  } catch (error) {
+    console.error('Error moving property images:', error);
+    throw error;
+  }
+}

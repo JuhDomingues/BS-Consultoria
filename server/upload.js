@@ -91,6 +91,65 @@ app.post('/api/upload-image', upload.single('file'), (req, res) => {
   }
 });
 
+// Move images from temp folder to real property folder
+app.post('/api/move-images', (req, res) => {
+  try {
+    const { tempId, realId } = req.body;
+
+    if (!tempId || !realId) {
+      return res.status(400).json({ error: 'tempId e realId são obrigatórios' });
+    }
+
+    console.log(`Moving images from ${tempId} to ${realId}`);
+
+    const tempDir = path.join(__dirname, '..', 'public', 'imoveis', tempId);
+    const realDir = path.join(__dirname, '..', 'public', 'imoveis', realId);
+
+    // Check if temp directory exists
+    if (!fs.existsSync(tempDir)) {
+      return res.status(404).json({ error: `Pasta temporária ${tempId} não encontrada` });
+    }
+
+    // Create real directory if it doesn't exist
+    if (!fs.existsSync(realDir)) {
+      fs.mkdirSync(realDir, { recursive: true });
+    }
+
+    // Get all files in temp directory
+    const files = fs.readdirSync(tempDir);
+    const movedFiles = [];
+
+    // Move each file
+    files.forEach(file => {
+      const tempFilePath = path.join(tempDir, file);
+      const realFilePath = path.join(realDir, file);
+
+      // Move file
+      fs.renameSync(tempFilePath, realFilePath);
+      movedFiles.push(file);
+      console.log(`  ✓ Moved: ${file}`);
+    });
+
+    // Remove temp directory
+    try {
+      fs.rmdirSync(tempDir);
+      console.log(`  ✓ Removed temp directory: ${tempDir}`);
+    } catch (error) {
+      console.warn(`  ⚠ Could not remove temp directory: ${error.message}`);
+    }
+
+    res.json({
+      success: true,
+      message: `${movedFiles.length} arquivo(s) movido(s) com sucesso!`,
+      movedFiles,
+      newUrls: movedFiles.map(file => `/imoveis/${realId}/${file}`)
+    });
+  } catch (error) {
+    console.error('Move images error:', error);
+    res.status(500).json({ error: 'Erro ao mover imagens', details: error.message });
+  }
+});
+
 // Delete endpoint
 app.post('/api/delete-image', (req, res) => {
   try {

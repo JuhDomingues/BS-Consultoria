@@ -69,10 +69,8 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
         formData.append('propertyId', propertyId || 'temp');
         formData.append('fileName', fileName);
 
-        // Upload to server - use relative URL for Vercel, absolute for local dev
-        const uploadUrl = import.meta.env.PROD
-          ? '/api/upload-image'
-          : 'http://localhost:3001/api/upload-image';
+        // Upload to server - always use local upload server (runs on VPS in production)
+        const uploadUrl = 'http://localhost:3001/api/upload-image';
 
         console.log(`Uploading to: ${uploadUrl}, propertyId: ${propertyId || 'temp'}`);
 

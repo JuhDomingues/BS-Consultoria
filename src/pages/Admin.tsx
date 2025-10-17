@@ -27,6 +27,7 @@ import {
   updateProperty,
   deleteProperty,
   togglePropertyActive,
+  movePropertyImages,
 } from "@/services/baserow";
 import { clearPropertiesCache } from "@/data/properties";
 import { useToast } from "@/hooks/use-toast";
@@ -196,11 +197,48 @@ const Admin = () => {
 
   const handleCreateProperty = async (data: Partial<Property>) => {
     try {
-      await createProperty(data);
+      const tempId = data.id; // Save temporary ID (temp_XXXXX)
+      const hasImages = data.images && data.images.length > 0;
+
+      console.log('Creating property with tempId:', tempId, 'hasImages:', hasImages);
+
+      // 1. Create property in Baserow (returns property with real ID)
+      const newProperty = await createProperty(data);
+      const realId = newProperty.id;
+
+      console.log('Property created with realId:', realId);
+
+      // 2. If property had temporary ID and images, move them to real ID folder
+      if (tempId && tempId.startsWith('temp_') && hasImages) {
+        console.log(`Moving images from ${tempId} to ${realId}...`);
+
+        try {
+          // Move images from temp folder to real folder
+          const newUrls = await movePropertyImages(tempId, realId);
+
+          console.log('Images moved successfully. New URLs:', newUrls);
+
+          // 3. Update Baserow with new image URLs
+          if (newUrls && newUrls.length > 0) {
+            await updateProperty(realId, { images: newUrls });
+            console.log('Image URLs updated in Baserow');
+          }
+        } catch (moveError) {
+          console.error('Error moving images:', moveError);
+          // Don't fail the whole operation if move fails
+          toast({
+            title: "Atenção",
+            description: "Imóvel criado, mas houve um erro ao mover as imagens. Verifique as URLs.",
+            variant: "destructive",
+          });
+        }
+      }
+
       toast({
         title: "Imóvel criado com sucesso!",
-        description: "O imóvel foi adicionado ao banco de dados.",
+        description: `O imóvel foi adicionado ao banco de dados com ID ${realId}.`,
       });
+
       await loadProperties();
     } catch (error) {
       console.error('Error creating property:', error);
