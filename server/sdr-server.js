@@ -116,8 +116,31 @@ app.post('/webhook/whatsapp', async (req, res) => {
         else if (result.shouldSendPropertyDetails && result.propertyToSend) {
           console.log(`Sending property details for: ${result.propertyToSend['Título'] || result.propertyToSend.title}`);
           console.log(`Skipping AI response - sending property details directly`);
-          const { sendPropertyDetails } = await import('./sdr-agent.js');
+          const { sendPropertyDetails, getAllProperties } = await import('./sdr-agent.js');
+
+          // Send the first property
           await sendPropertyDetails(phoneNumber, result.propertyToSend);
+
+          // If there are multiple properties to send (user asked for "both", "all", etc.)
+          if (result.context.propertiesToSend && result.context.propertiesToSend.length > 1) {
+            const allProperties = await getAllProperties();
+
+            // Send remaining properties (skip the first one we already sent)
+            for (let i = 1; i < result.context.propertiesToSend.length; i++) {
+              const propertyId = result.context.propertiesToSend[i];
+              const property = allProperties.find(p => p.id === propertyId);
+
+              if (property) {
+                // Wait 3 seconds between properties to avoid spamming
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                console.log(`Sending additional property ${i + 1}/${result.context.propertiesToSend.length}: ${property['Title'] || property['Título']}`);
+                await sendPropertyDetails(phoneNumber, property);
+              }
+            }
+
+            // Clear the propertiesToSend list after sending all
+            result.context.propertiesToSend = [];
+          }
         } else {
           // Only send AI response if NOT sending property details or scheduling
           await sendWhatsAppMessage(phoneNumber, result.response);

@@ -619,8 +619,8 @@ ${description}
       }
 
       if (imagePaths.length > 0) {
-        // Base URL for images (deploy URL or local)
-        const BASE_URL = process.env.SITE_BASE_URL || 'https://bs-consultoria.vercel.app';
+        // Base URL for images (use VPS domain, not Vercel)
+        const BASE_URL = process.env.SITE_BASE_URL || 'https://bsconsultoriadeimoveis.com.br';
 
         // Send up to 3 images
         const imagesToSend = imagePaths.slice(0, 3);
@@ -867,38 +867,77 @@ async function processMessage(phoneNumber, message, propertyId = null) {
         });
       }
 
-      // Second pass: Check last AI response for property mentions (when user just says "quero ver" or "sim")
-      if (!propertyToSend && (normalizedMessage === 'quero ver' || normalizedMessage === 'sim' || normalizedMessage === 'sim quero' || normalizedMessage.startsWith('quero ver'))) {
-        // Look at the last AI message to find which property was mentioned
+      // Second pass: Check last AI response for property mentions (when user asks for photos)
+      // Also detect when user wants to see MULTIPLE properties ("ambas", "as duas", "todas", "dos dois")
+      const wantsMultipleProperties = /ambas|as duas|os dois|todas|todos|duas|dois/.test(normalizedMessage) ||
+                                      /fotos das|fotos dos|foto das|foto dos/.test(normalizedMessage);
+
+      if (!propertyToSend && (isRequestingInfo || normalizedMessage.includes('quero ver') || normalizedMessage === 'sim' || normalizedMessage === 'sim quero')) {
+        // Look at the last AI message to find which properties were mentioned
         const lastAIMessages = context.history.filter(h => h.role === 'assistant').slice(-2);
 
         if (lastAIMessages.length > 0) {
           const lastAIText = normalize(lastAIMessages[lastAIMessages.length - 1].content);
-          console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 100)}..."`);
+          console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 150)}..."`);
 
-          // Try to find property by matching FULL neighborhood name (not just words)
-          propertyToSend = activeProperties.find(p => {
-            const title = normalize(p['Title'] || p['Título'] || p.title || '');
-            const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
+          // If user wants multiple properties, try to extract ALL properties mentioned in last AI response
+          if (wantsMultipleProperties) {
+            const propertiesFromAI = [];
 
-            // Match full neighborhood name (more precise)
-            if (neighborhood.length > 0 && lastAIText.includes(neighborhood)) {
-              console.log(`✅ Found property from last AI message (neighborhood match): ${title} - ${neighborhood}`);
-              return true;
-            }
+            // Find all properties mentioned in the last AI response
+            for (const property of activeProperties) {
+              const title = normalize(property['Title'] || property['Título'] || property.title || '');
+              const neighborhood = normalize(property['neighborhood'] || property['Bairro'] || property.bairro || '');
+              const price = property['Price'] || property['Preço'] || property.price || '';
 
-            // Match title if it's distinctive enough (at least 2 words from title)
-            const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
-            if (titleWords.length >= 2) {
-              const matchedWords = titleWords.filter(word => lastAIText.includes(word));
-              if (matchedWords.length >= 2) {
-                console.log(`✅ Found property from last AI message (title match): ${title}`);
-                return true;
+              // Check if this property was mentioned in the AI response
+              const neighborhoodMatch = neighborhood.length > 0 && lastAIText.includes(neighborhood);
+              const priceMatch = price && lastAIText.includes(price.toLowerCase().replace(/\s/g, ''));
+
+              // Match title words (at least 2 words from title)
+              const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
+              const titleMatch = titleWords.length >= 2 &&
+                                titleWords.filter(word => lastAIText.includes(word)).length >= 2;
+
+              if (neighborhoodMatch || priceMatch || titleMatch) {
+                propertiesFromAI.push(property);
+                console.log(`✅ Found property from last AI message: ${title}`);
               }
             }
 
-            return false;
-          });
+            // If we found multiple properties, store them in context for batch sending
+            if (propertiesFromAI.length > 1) {
+              context.propertiesToSend = propertiesFromAI.map(p => p.id);
+              propertyToSend = propertiesFromAI[0]; // Send first one now, others will be sent after
+              console.log(`📋 Will send ${propertiesFromAI.length} properties from AI response`);
+            } else if (propertiesFromAI.length === 1) {
+              propertyToSend = propertiesFromAI[0];
+            }
+          } else {
+            // Single property request - use existing logic
+            propertyToSend = activeProperties.find(p => {
+              const title = normalize(p['Title'] || p['Título'] || p.title || '');
+              const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
+
+              // Match full neighborhood name (more precise)
+              if (neighborhood.length > 0 && lastAIText.includes(neighborhood)) {
+                console.log(`✅ Found property from last AI message (neighborhood match): ${title} - ${neighborhood}`);
+                return true;
+              }
+
+              // Match title if it's distinctive enough (at least 2 words from title)
+              const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
+              if (titleWords.length >= 2) {
+                const matchedWords = titleWords.filter(word => lastAIText.includes(word));
+                if (matchedWords.length >= 2) {
+                  console.log(`✅ Found property from last AI message (title match): ${title}`);
+                  return true;
+                }
+              }
+
+              return false;
+            });
+          }
         }
       }
 

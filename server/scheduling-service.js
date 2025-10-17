@@ -43,7 +43,7 @@ async function schedulePropertyVisit(customerPhone, customerName, customerEmail,
     const propertyAddress = `${property['neighborhood'] || property['Bairro'] || ''}, ${property['city'] || property['Cidade'] || ''}`.trim();
 
     // Generate property link
-    const baseUrl = process.env.SITE_BASE_URL || 'https://bs-consultoria.vercel.app';
+    const baseUrl = process.env.SITE_BASE_URL || 'https://bsconsultoriadeimoveis.com.br';
     const propertyLink = `${baseUrl}/imovel/${propertyId}`;
 
     // Create Calendly scheduling link with all property details
