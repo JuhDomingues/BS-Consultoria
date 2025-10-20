@@ -50,8 +50,7 @@ export async function generatePropertyWithAI(
 ): Promise<Partial<Property>> {
   try {
     console.log('Starting AI generation...', {
-      imageCount: input.images.length,
-      hasApiKey: !!import.meta.env.VITE_OPENAI_API_KEY
+      imageCount: input.images.length
     });
 
     // Convert images to base64
@@ -182,7 +181,8 @@ IMPORTANTE:
 - O título DEVE incluir o nome do bairro/região
 - A descrição DEVE mencionar a localização fornecida`;
 
-    // Call API through our server - use production URL if available
+    // Call OpenAI API through our server to avoid CORS issues and keep API key secure
+    // Use production URL if available
     console.log('Calling AI endpoint...');
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     const response = await fetch(`${apiUrl}/api/generate-with-ai`, {
@@ -193,7 +193,6 @@ IMPORTANTE:
       body: JSON.stringify({
         images: imageContents,
         prompt: prompt,
-        apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
       }),
     });
 

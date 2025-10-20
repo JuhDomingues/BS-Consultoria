@@ -31,26 +31,24 @@ interface Property {
   active: boolean;
 }
 
-const BASEROW_API_URL = import.meta.env.VITE_BASEROW_API_URL;
-const BASEROW_TOKEN = import.meta.env.VITE_BASEROW_TOKEN;
-const BASEROW_TABLE_ID = import.meta.env.VITE_BASEROW_TABLE_ID;
+// Backend API URL - All Baserow requests now go through our secure backend
+const BACKEND_API_URL = 'http://localhost:3001';
 
 /**
- * Fetch all properties from Baserow
+ * Fetch all properties from Baserow (via secure backend)
  */
 export async function fetchProperties(): Promise<Property[]> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true&size=200`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties`;
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowResponse = await response.json();
@@ -120,17 +118,16 @@ function transformBaserowToProperty(item: BaserowProperty): Property {
 }
 
 /**
- * Fetch a single property by ID
+ * Fetch a single property by ID (via secure backend)
  */
 export async function fetchPropertyById(id: string): Promise<Property | null> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties/${id}`;
 
     console.log(`Fetching property by ID: ${id}`);
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });
@@ -140,7 +137,7 @@ export async function fetchPropertyById(id: string): Promise<Property | null> {
         console.log(`Property ${id} not found (404)`);
         return null;
       }
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowProperty = await response.json();
@@ -163,11 +160,11 @@ export async function fetchPropertyById(id: string): Promise<Property | null> {
 }
 
 /**
- * Create a new property in Baserow
+ * Create a new property in Baserow (via secure backend)
  */
 export async function createProperty(propertyData: Partial<Property>): Promise<Property> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties`;
 
     // Transform Property to Baserow format
     // Note: Don't include 'id' as Baserow auto-generates it
@@ -216,7 +213,6 @@ export async function createProperty(propertyData: Partial<Property>): Promise<P
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(baserowData),
@@ -224,8 +220,8 @@ export async function createProperty(propertyData: Partial<Property>): Promise<P
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Baserow API error response:', errorText);
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      console.error('Backend API error response:', errorText);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowProperty = await response.json();
@@ -238,11 +234,11 @@ export async function createProperty(propertyData: Partial<Property>): Promise<P
 }
 
 /**
- * Update an existing property in Baserow
+ * Update an existing property in Baserow (via secure backend)
  */
 export async function updateProperty(id: string, propertyData: Partial<Property>): Promise<Property> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties/${id}`;
 
     // Transform Property to Baserow format
     const baserowData: any = {};
@@ -284,14 +280,13 @@ export async function updateProperty(id: string, propertyData: Partial<Property>
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(baserowData),
     });
 
     if (!response.ok) {
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowProperty = await response.json();
@@ -303,21 +298,21 @@ export async function updateProperty(id: string, propertyData: Partial<Property>
 }
 
 /**
- * Delete a property from Baserow
+ * Delete a property from Baserow (via secure backend)
  */
 export async function deleteProperty(id: string): Promise<void> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties/${id}`;
 
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
+        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {
     console.error(`Error deleting property ${id} from Baserow:`, error);
@@ -326,11 +321,11 @@ export async function deleteProperty(id: string): Promise<void> {
 }
 
 /**
- * Toggle active status of a property
+ * Toggle active status of a property (via secure backend)
  */
 export async function togglePropertyActive(id: string, active: boolean): Promise<Property> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties/${id}`;
 
     console.log(`Toggling property ${id} to active=${active}`);
 
@@ -343,7 +338,6 @@ export async function togglePropertyActive(id: string, active: boolean): Promise
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(updateData),
@@ -352,7 +346,7 @@ export async function togglePropertyActive(id: string, active: boolean): Promise
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Toggle active error response:', errorText);
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowProperty = await response.json();
@@ -365,21 +359,20 @@ export async function togglePropertyActive(id: string, active: boolean): Promise
 }
 
 /**
- * Fetch all properties including inactive ones (for admin panel)
+ * Fetch all properties including inactive ones (for admin panel - via secure backend)
  */
 export async function fetchAllPropertiesAdmin(): Promise<Property[]> {
   try {
-    const url = `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true&size=200`;
+    const url = `${BACKEND_API_URL}/api/baserow/properties`;
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Baserow API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
 
     const data: BaserowResponse = await response.json();

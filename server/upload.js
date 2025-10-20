@@ -4,9 +4,13 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env.local from project root
+dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 
 const app = express();
 const PORT = 3001;
@@ -195,10 +199,17 @@ app.post('/api/delete-image', (req, res) => {
 // AI Generation endpoint
 app.post('/api/generate-with-ai', async (req, res) => {
   try {
-    const { images, prompt, apiKey } = req.body;
+    const { images, prompt } = req.body;
 
-    if (!images || !prompt || !apiKey) {
+    if (!images || !prompt) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get API key from server environment (SECURE)
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error('❌ OPENAI_API_KEY not found in server environment');
+      return res.status(500).json({ error: 'OpenAI API key not configured on server' });
     }
 
     console.log('🤖 Calling OpenAI API...');
@@ -262,6 +273,119 @@ app.post('/api/generate-with-ai', async (req, res) => {
   }
 });
 
+// Baserow proxy endpoints - Keep API token secure on server side
+const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
+const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
+const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
+
+// Helper function to make Baserow requests
+async function baserowRequest(endpoint, options = {}) {
+  if (!BASEROW_TOKEN) {
+    throw new Error('BASEROW_TOKEN not configured on server');
+  }
+
+  const url = `${BASEROW_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Token ${BASEROW_TOKEN}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Baserow API error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// GET all properties
+app.get('/api/baserow/properties', async (req, res) => {
+  try {
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true&size=200`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET single property by ID
+app.get('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error fetching property ${req.params.id}:`, error);
+    if (error.message.includes('404')) {
+      res.status(404).json({ error: 'Property not found' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// POST create new property
+app.post('/api/baserow/properties', async (req, res) => {
+  try {
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true`,
+      {
+        method: 'POST',
+        body: JSON.stringify(req.body),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating property:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH update property
+app.patch('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(req.body),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error updating property ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE property
+app.delete('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await fetch(`${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Token ${BASEROW_TOKEN}`,
+      },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`Error deleting property ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`📤 Upload server running on http://localhost:${PORT}`);
+  console.log(`🔒 API keys secured on server side`);
 });

@@ -23,15 +23,16 @@ const __dirname = dirname(__filename);
 // Load .env.local from project root
 dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+// Server-side environment variables (SECURE - never exposed to frontend)
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE;
 const CALENDLY_API_KEY = process.env.CALENDLY_API_KEY;
 const CALENDLY_EVENT_TYPE = process.env.CALENDLY_EVENT_TYPE;
-const BASEROW_API_URL = process.env.VITE_BASEROW_API_URL;
-const BASEROW_TOKEN = process.env.VITE_BASEROW_TOKEN;
-const BASEROW_TABLE_ID = process.env.VITE_BASEROW_TABLE_ID;
+const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
+const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
+const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
 
 // Fallback in-memory storage (used if Redis is unavailable)
 const conversationContextFallback = new Map();
