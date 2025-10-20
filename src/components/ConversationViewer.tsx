@@ -61,7 +61,9 @@ export function ConversationViewer({ phoneNumber, open, onOpenChange }: Conversa
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3002/api/conversations/${phoneNumber}`);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const sdrUrl = apiUrl.replace(':3000', ':3002').replace(':3001', ':3002');
+      const response = await fetch(`${sdrUrl}/api/conversations/${phoneNumber}`);
       const result = await response.json();
 
       if (result.success) {

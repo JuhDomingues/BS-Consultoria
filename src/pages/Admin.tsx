@@ -106,7 +106,9 @@ const Admin = () => {
   const loadConversations = async () => {
     try {
       setConversationsLoading(true);
-      const response = await fetch('http://localhost:3002/api/conversations');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const sdrUrl = apiUrl.replace(':3000', ':3002').replace(':3001', ':3002');
+      const response = await fetch(`${sdrUrl}/api/conversations`);
       const data = await response.json();
 
       if (data.success) {
@@ -127,7 +129,9 @@ const Admin = () => {
   const loadSDRStats = async () => {
     try {
       setStatsLoading(true);
-      const response = await fetch('http://localhost:3002/api/sdr-stats');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const sdrUrl = apiUrl.replace(':3000', ':3002').replace(':3001', ':3002');
+      const response = await fetch(`${sdrUrl}/api/sdr-stats`);
       const data = await response.json();
 
       if (data.success) {
