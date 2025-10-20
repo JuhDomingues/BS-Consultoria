@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const tempPath = path.join(__dirname, '..', 'dist', 'imoveis', 'temp');
+    const tempPath = path.join(__dirname, '..', 'public', 'imoveis', 'temp');
 
     if (!fs.existsSync(tempPath)) {
       fs.mkdirSync(tempPath, { recursive: true });
@@ -85,7 +85,7 @@ app.post('/api/upload-image', upload.single('file'), (req, res) => {
 
     // Move file from temp to final destination
     const tempFilePath = req.file.path;
-    const finalDir = path.join(__dirname, '..', 'dist', 'imoveis', propertyId);
+    const finalDir = path.join(__dirname, '..', 'public', 'imoveis', propertyId);
     const finalFilePath = path.join(finalDir, fileName);
 
     // Create directory if it doesn't exist
@@ -123,7 +123,7 @@ app.post('/api/delete-image', (req, res) => {
       return res.status(400).json({ error: 'URL da imagem não fornecida' });
     }
 
-    const filePath = path.join(__dirname, '..', 'dist', imageUrl);
+    const filePath = path.join(__dirname, '..', 'public', imageUrl);
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -148,8 +148,8 @@ app.post('/api/move-images', (req, res) => {
 
     console.log(`Moving images from ${tempId} to ${realId}`);
 
-    const tempDir = path.join(__dirname, '..', 'dist', 'imoveis', tempId);
-    const realDir = path.join(__dirname, '..', 'dist', 'imoveis', realId);
+    const tempDir = path.join(__dirname, '..', 'public', 'imoveis', tempId);
+    const realDir = path.join(__dirname, '..', 'public', 'imoveis', realId);
 
     // Check if temp directory exists
     if (!fs.existsSync(tempDir)) {
@@ -413,8 +413,8 @@ for (const route of apiRoutes) {
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
 
-// Serve imoveis directory
-const imoveisPath = path.join(distPath, 'imoveis');
+// Serve imoveis directory from public folder
+const imoveisPath = path.join(__dirname, '..', 'public', 'imoveis');
 if (!fs.existsSync(imoveisPath)) {
   fs.mkdirSync(imoveisPath, { recursive: true });
 }
