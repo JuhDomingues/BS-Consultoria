@@ -4,9 +4,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import fs from 'fs';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -132,6 +137,118 @@ app.post('/api/delete-image', (req, res) => {
   }
 });
 
+// Baserow API configuration
+const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
+const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
+const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
+
+// Helper function to make Baserow requests
+async function baserowRequest(endpoint, options = {}) {
+  if (!BASEROW_TOKEN) {
+    throw new Error('BASEROW_TOKEN not configured on server');
+  }
+
+  const url = `${BASEROW_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Token ${BASEROW_TOKEN}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Baserow API error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// GET all properties from Baserow
+app.get('/api/baserow/properties', async (req, res) => {
+  try {
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true&size=200`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET single property by ID from Baserow
+app.get('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error fetching property ${req.params.id}:`, error);
+    if (error.message.includes('404')) {
+      res.status(404).json({ error: 'Property not found' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// POST create new property in Baserow
+app.post('/api/baserow/properties', async (req, res) => {
+  try {
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/?user_field_names=true`,
+      {
+        method: 'POST',
+        body: JSON.stringify(req.body),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating property:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH update property in Baserow
+app.patch('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/?user_field_names=true`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(req.body),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error updating property ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE property from Baserow
+app.delete('/api/baserow/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await fetch(`${BASEROW_API_URL}/api/database/rows/table/${BASEROW_TABLE_ID}/${id}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Token ${BASEROW_TOKEN}`,
+      },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`Error deleting property ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Import other API routes if they exist
 const apiRoutes = [
   'health',
@@ -193,9 +310,14 @@ app.listen(PORT, '0.0.0.0', () => {
 ║   Node version: ${process.version}                           ║
 ║                                                           ║
 ║   API Endpoints:                                          ║
-║   - GET  /api/health                                      ║
-║   - POST /api/upload-image                                ║
-║   - POST /api/delete-image                                ║
+║   - GET    /api/health                                    ║
+║   - POST   /api/upload-image                              ║
+║   - POST   /api/delete-image                              ║
+║   - GET    /api/baserow/properties                        ║
+║   - GET    /api/baserow/properties/:id                    ║
+║   - POST   /api/baserow/properties                        ║
+║   - PATCH  /api/baserow/properties/:id                    ║
+║   - DELETE /api/baserow/properties/:id                    ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
