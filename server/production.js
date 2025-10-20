@@ -137,6 +137,83 @@ app.post('/api/delete-image', (req, res) => {
   }
 });
 
+// AI Generation endpoint
+app.post('/api/generate-with-ai', async (req, res) => {
+  try {
+    const { images, prompt } = req.body;
+
+    if (!images || !prompt) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get API key from server environment (SECURE)
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error('❌ OPENAI_API_KEY not found in server environment');
+      return res.status(500).json({ error: 'OpenAI API key not configured on server' });
+    }
+
+    console.log('🤖 Calling OpenAI API...');
+
+    // Convert images to OpenAI format
+    const imageMessages = images.map(img => ({
+      type: 'image_url',
+      image_url: {
+        url: `data:${img.source.media_type};base64,${img.source.data}`
+      }
+    }));
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2000,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              ...imageMessages,
+              {
+                type: 'text',
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
+      return res.status(response.status).json({
+        error: `OpenAI API error: ${response.status}`,
+        details: errorText
+      });
+    }
+
+    const data = await response.json();
+    console.log('✅ AI response received');
+
+    // Convert OpenAI response format to match Anthropic format
+    const formattedData = {
+      content: [{
+        type: 'text',
+        text: data.choices[0].message.content
+      }]
+    };
+
+    res.json(formattedData);
+  } catch (error) {
+    console.error('AI generation error:', error);
+    res.status(500).json({ error: 'Error generating with AI', details: error.message });
+  }
+});
+
 // Baserow API configuration
 const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
 const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
@@ -313,6 +390,7 @@ app.listen(PORT, '0.0.0.0', () => {
 ║   - GET    /api/health                                    ║
 ║   - POST   /api/upload-image                              ║
 ║   - POST   /api/delete-image                              ║
+║   - POST   /api/generate-with-ai                          ║
 ║   - GET    /api/baserow/properties                        ║
 ║   - GET    /api/baserow/properties/:id                    ║
 ║   - POST   /api/baserow/properties                        ║
