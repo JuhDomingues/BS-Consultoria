@@ -3,10 +3,40 @@
  * Stores and retrieves Typebot lead information for the SDR agent
  */
 
-import { getRedisClient, isRedisConnected } from './redis-client.js';
+import { Redis } from '@upstash/redis';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env.local from project root
+dotenv.config({ path: join(__dirname, '..', '.env.local') });
+
+const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 // Fallback storage for when Redis is not available
 const typebotLeadsCache = new Map();
+
+// Redis client
+let redisClient = null;
+let isConnected = false;
+
+// Initialize Redis
+try {
+  if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
+    redisClient = new Redis({
+      url: UPSTASH_REDIS_REST_URL,
+      token: UPSTASH_REDIS_REST_TOKEN,
+    });
+    isConnected = true;
+  }
+} catch (error) {
+  console.error('Typebot Service: Failed to initialize Redis:', error);
+  isConnected = false;
+}
 
 /**
  * Save Typebot lead information
@@ -21,13 +51,12 @@ export async function saveTypebotLead(phoneNumber, leadInfo) {
     };
 
     // Try to save to Redis
-    if (isRedisConnected()) {
-      const redis = getRedisClient();
+    if (isConnected && redisClient) {
       const key = `typebot:lead:${phoneNumber}`;
 
-      await redis.set(key, JSON.stringify(data));
+      await redisClient.set(key, JSON.stringify(data));
       // Expire after 30 days if not processed
-      await redis.expire(key, 30 * 24 * 60 * 60);
+      await redisClient.expire(key, 30 * 24 * 60 * 60);
 
       console.log(`Typebot lead saved to Redis: ${phoneNumber}`);
     } else {
@@ -56,13 +85,13 @@ export async function saveTypebotLead(phoneNumber, leadInfo) {
 export async function getTypebotLead(phoneNumber) {
   try {
     // Try to get from Redis
-    if (isRedisConnected()) {
-      const redis = getRedisClient();
+    if (isConnected && redisClient) {
       const key = `typebot:lead:${phoneNumber}`;
 
-      const data = await redis.get(key);
+      const data = await redisClient.get(key);
       if (data) {
-        return JSON.parse(data);
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        return parsed;
       }
     }
 
@@ -94,13 +123,12 @@ export async function markTypebotLeadAsProcessed(phoneNumber) {
     lead.processedAt = new Date().toISOString();
 
     // Update in Redis
-    if (isRedisConnected()) {
-      const redis = getRedisClient();
+    if (isConnected && redisClient) {
       const key = `typebot:lead:${phoneNumber}`;
 
-      await redis.set(key, JSON.stringify(lead));
+      await redisClient.set(key, JSON.stringify(lead));
       // Keep for 90 days after processing
-      await redis.expire(key, 90 * 24 * 60 * 60);
+      await redisClient.expire(key, 90 * 24 * 60 * 60);
     }
 
     // Update in memory
@@ -120,14 +148,13 @@ export async function getUnprocessedTypebotLeads() {
     const leads = [];
 
     // Try to get from Redis
-    if (isRedisConnected()) {
-      const redis = getRedisClient();
-      const keys = await redis.keys('typebot:lead:*');
+    if (isConnected && redisClient) {
+      const keys = await redisClient.keys('typebot:lead:*');
 
       for (const key of keys) {
-        const data = await redis.get(key);
+        const data = await redisClient.get(key);
         if (data) {
-          const lead = JSON.parse(data);
+          const lead = typeof data === 'string' ? JSON.parse(data) : data;
           if (!lead.processed) {
             leads.push(lead);
           }
@@ -213,10 +240,9 @@ export function formatTypebotLeadForAI(leadInfo) {
 export async function deleteTypebotLead(phoneNumber) {
   try {
     // Delete from Redis
-    if (isRedisConnected()) {
-      const redis = getRedisClient();
+    if (isConnected && redisClient) {
       const key = `typebot:lead:${phoneNumber}`;
-      await redis.del(key);
+      await redisClient.del(key);
     }
 
     // Delete from memory
