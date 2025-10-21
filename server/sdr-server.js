@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { processMessage, sendWhatsAppMessage, getAllProperties } from './sdr-agent.js';
 import { schedulePropertyVisit, handleCalendlyWebhook, getAllScheduledReminders } from './scheduling-service.js';
 import { formatSchedulingMessage } from './calendly-service.js';
+import { saveTypebotLead, getTypebotLead, getUnprocessedTypebotLeads } from './typebot-service.js';
 
 dotenv.config();
 
@@ -413,6 +414,94 @@ app.post('/webhook/calendly', async (req, res) => {
 });
 
 /**
+ * Webhook to receive leads from Typebot
+ * Typebot will POST here when a lead completes the chatbot flow
+ */
+app.post('/webhook/typebot', async (req, res) => {
+  try {
+    console.log('=== Received Typebot Webhook ===');
+    console.log(JSON.stringify(req.body, null, 2));
+
+    const typebotData = req.body;
+
+    // Extract phone number and lead info
+    const phoneNumber = extractPhoneNumberFromTypebot(typebotData);
+
+    if (!phoneNumber) {
+      console.error('Phone number not found in Typebot data');
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+
+    // Extract all lead information
+    const leadInfo = extractLeadInfoFromTypebot(typebotData);
+
+    console.log(`Processing Typebot lead: ${phoneNumber}`);
+    console.log('Lead info:', leadInfo);
+
+    // Save lead information for SDR agent to use
+    await saveTypebotLead(phoneNumber, leadInfo);
+
+    console.log(`Typebot lead saved successfully: ${phoneNumber}`);
+
+    // Always respond with 200 to acknowledge receipt
+    res.status(200).json({
+      success: true,
+      message: 'Lead received and stored',
+      phoneNumber: phoneNumber
+    });
+  } catch (error) {
+    console.error('Error processing Typebot webhook:', error);
+    // Still return 200 to prevent Typebot from retrying
+    res.status(200).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API endpoint to get all unprocessed Typebot leads
+ */
+app.get('/api/typebot-leads', async (req, res) => {
+  try {
+    const leads = await getUnprocessedTypebotLeads();
+    res.json({
+      success: true,
+      count: leads.length,
+      leads: leads
+    });
+  } catch (error) {
+    console.error('Error fetching Typebot leads:', error);
+    res.status(500).json({ error: 'Failed to fetch Typebot leads' });
+  }
+});
+
+/**
+ * API endpoint to get specific Typebot lead
+ */
+app.get('/api/typebot-leads/:phoneNumber', async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const lead = await getTypebotLead(phoneNumber);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    res.json({
+      success: true,
+      lead: lead
+    });
+  } catch (error) {
+    console.error('Error fetching Typebot lead:', error);
+    res.status(500).json({ error: 'Failed to fetch Typebot lead' });
+  }
+});
+
+/**
  * API endpoint to get all scheduled reminders (for monitoring)
  */
 app.get('/api/reminders', async (req, res) => {
@@ -475,10 +564,138 @@ app.post('/api/schedule-visit', async (req, res) => {
   }
 });
 
+/**
+ * Helper functions for Type bot data extraction
+ */
+function extractPhoneNumberFromTypebot(typebotData) {
+  // Try direct fields
+  if (typebotData.phone || typebotData.phoneNumber || typebotData.telefone) {
+    return cleanPhoneNumber(typebotData.phone || typebotData.phoneNumber || typebotData.telefone);
+  }
+
+  // Try in answers
+  if (typebotData.answers) {
+    for (const answer of typebotData.answers) {
+      const blockId = (answer.blockId || '').toLowerCase();
+      const variableId = (answer.variableId || '').toLowerCase();
+
+      if (blockId.includes('phone') || blockId.includes('telefone') ||
+          variableId.includes('phone') || variableId.includes('telefone')) {
+        return cleanPhoneNumber(answer.value);
+      }
+    }
+  }
+
+  // Try in variables
+  if (typebotData.variables) {
+    const phoneVar = typebotData.variables.find(v =>
+      (v.name || '').toLowerCase().includes('phone') ||
+      (v.name || '').toLowerCase().includes('telefone')
+    );
+    if (phoneVar) {
+      return cleanPhoneNumber(phoneVar.value);
+    }
+  }
+
+  return null;
+}
+
+function extractLeadInfoFromTypebot(typebotData) {
+  const leadInfo = {
+    source: 'typebot',
+    timestamp: new Date().toISOString(),
+    rawData: typebotData,
+    answers: {},
+    variables: {}
+  };
+
+  // Extract answers
+  if (typebotData.answers) {
+    typebotData.answers.forEach((answer, index) => {
+      const key = answer.blockId || answer.variableId || `answer_${index}`;
+      leadInfo.answers[key] = answer.value;
+    });
+  }
+
+  // Extract variables
+  if (typebotData.variables) {
+    typebotData.variables.forEach(variable => {
+      leadInfo.variables[variable.name] = variable.value;
+    });
+  }
+
+  // Extract common fields
+  leadInfo.name = extractFieldFromTypebot(typebotData, ['name', 'nome', 'customerName']);
+  leadInfo.email = extractFieldFromTypebot(typebotData, ['email', 'emailAddress']);
+  leadInfo.phone = extractFieldFromTypebot(typebotData, ['phone', 'phoneNumber', 'telefone']);
+  leadInfo.interest = extractFieldFromTypebot(typebotData, ['interest', 'interesse', 'propertyType', 'tipoImovel']);
+  leadInfo.budget = extractFieldFromTypebot(typebotData, ['budget', 'orcamento', 'valorMaximo']);
+  leadInfo.location = extractFieldFromTypebot(typebotData, ['location', 'localizacao', 'bairro', 'cidade']);
+  leadInfo.message = extractFieldFromTypebot(typebotData, ['message', 'mensagem', 'observacoes']);
+
+  return leadInfo;
+}
+
+function extractFieldFromTypebot(typebotData, possibleNames) {
+  // Check direct fields
+  for (const name of possibleNames) {
+    if (typebotData[name]) {
+      return typebotData[name];
+    }
+  }
+
+  // Check in answers
+  if (typebotData.answers) {
+    for (const answer of typebotData.answers) {
+      const blockId = (answer.blockId || '').toLowerCase();
+      const variableId = (answer.variableId || '').toLowerCase();
+
+      for (const name of possibleNames) {
+        if (blockId.includes(name.toLowerCase()) || variableId.includes(name.toLowerCase())) {
+          return answer.value;
+        }
+      }
+    }
+  }
+
+  // Check in variables
+  if (typebotData.variables) {
+    for (const variable of typebotData.variables) {
+      const varName = (variable.name || '').toLowerCase();
+
+      for (const name of possibleNames) {
+        if (varName.includes(name.toLowerCase())) {
+          return variable.value;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function cleanPhoneNumber(phone) {
+  if (!phone) return null;
+
+  // Remove everything except numbers
+  let cleaned = phone.toString().replace(/\D/g, '');
+
+  // Add Brazil country code if not present
+  if (cleaned.length === 11 || cleaned.length === 10) {
+    cleaned = '55' + cleaned;
+  }
+
+  // Remove + if present
+  cleaned = cleaned.replace(/^\+/, '');
+
+  return cleaned;
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`SDR Agent Server running on port ${PORT}`);
   console.log(`Webhook URL: http://localhost:${PORT}/webhook/whatsapp`);
+  console.log(`Typebot Webhook URL: http://localhost:${PORT}/webhook/typebot`);
   console.log(`Calendly Webhook URL: http://localhost:${PORT}/webhook/calendly`);
   console.log(`Test AI: http://localhost:${PORT}/api/test-ai`);
   console.log(`Schedule Visit: http://localhost:${PORT}/api/schedule-visit`);

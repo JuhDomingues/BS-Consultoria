@@ -341,7 +341,7 @@ Cliente: Quero agendar uma visita ao Residencial Bela Vista
 
 **WhatsApp:**
 ```
-Susi: Ótimo, João! 🎉
+Mia: Ótimo, João! 🎉
 
 Para agendar sua visita ao Residencial Bela Vista,
 acesse o link abaixo e escolha o melhor horário:

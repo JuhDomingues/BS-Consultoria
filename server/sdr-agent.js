@@ -16,6 +16,12 @@ import {
   deleteConversationContext,
   getRedisStats
 } from './redis-client.js';
+import {
+  getTypebotLead,
+  isTypebotLead,
+  markTypebotLeadAsProcessed,
+  formatTypebotLeadForAI
+} from './typebot-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -101,13 +107,31 @@ function formatPropertiesForAI(properties) {
 /**
  * System prompt for the SDR AI Agent
  */
-function getSystemPrompt(properties, customerInfo) {
+function getSystemPrompt(properties, customerInfo, typebotLeadInfo = null) {
   const propertiesText = JSON.stringify(properties, null, 2);
 
   // Determine customer context based on history
   let customerContext = '';
 
-  if (customerInfo.isReturningCustomer) {
+  // Check if customer came from Typebot
+  if (typebotLeadInfo) {
+    const typebotContext = formatTypebotLeadForAI(typebotLeadInfo);
+    customerContext = `CONTEXTO DO CLIENTE - LEAD DO TYPEBOT:
+- Este cliente preencheu um formulário detalhado antes de entrar em contato
+- Você JÁ TEM as informações dele, NÃO pergunte novamente
+- Use as informações abaixo para personalizar sua abordagem
+- Seja direta e objetiva, vá direto para a recomendação de imóveis
+
+${typebotContext}
+
+IMPORTANTE - ABORDAGEM PARA LEAD DO TYPEBOT:
+- NÃO se apresente formalmente, o cliente já te conhece do formulário
+- NÃO faça perguntas que ele já respondeu no Typebot
+- Vá DIRETO para recomendar imóveis baseado nas preferências dele
+- Use o nome dele se estiver disponível
+- Seja objetiva: "Oi! Vi que você tá buscando [tipo de imóvel] em [localização]. Tenho 2 opções perfeitas pra você!"
+- Recomende os imóveis que melhor atendem ao perfil dele IMEDIATAMENTE`;
+  } else if (customerInfo.isReturningCustomer) {
     const daysSinceLastContact = Math.floor((Date.now() - customerInfo.lastContact) / (1000 * 60 * 60 * 24));
     const totalMessages = customerInfo.totalMessages;
 
@@ -145,17 +169,17 @@ function getSystemPrompt(properties, customerInfo) {
     customerContext = `CONTEXTO DO CLIENTE:
 - Este é um NOVO cliente (primeira vez que entra em contato)
 - NUNCA conversou com você antes
-- Apresente-se como "Susi" na primeira mensagem
+- Apresente-se como "Mia" na primeira mensagem
 - Seja acolhedora e profissional
-- Exemplo: "Oi! Sou a Susi 😊"`;
+- Exemplo: "Oi! Sou a Mia 😊"`;
   }
 
-  return `Você é a Susi, uma consultora de imóveis SDR (Sales Development Representative) especializada em imóveis da BS Consultoria de Imóveis.
+  return `Você é a Mia, uma consultora de imóveis SDR (Sales Development Representative) especializada em imóveis da BS Consultoria de Imóveis.
 
 ${customerContext}
 
 SEU NOME E IDENTIDADE:
-- Você é a Susi, consultora de imóveis
+- Você é a Mia, consultora de imóveis
 - Use seu nome com simpatia e profissionalismo
 
 SEU PAPEL:
@@ -254,7 +278,7 @@ IMPORTANTE - NÃO PAREÇA UM ROBÔ:
 
 EXEMPLO DE CONVERSA BOA (Qualificação completa + Seleção inteligente):
 Cliente: "Olá, quero ver imóveis"
-Você: "Oi! Sou a Susi 😊 Me conta: quantos quartos você precisa? Prefere apartamento ou casa? Qual cidade você tá buscando e tem algum bairro de preferência? E qual o valor que pretende investir?"
+Você: "Oi! Sou a Mia 😊 Me conta: quantos quartos você precisa? Prefere apartamento ou casa? Qual cidade você tá buscando e tem algum bairro de preferência? E qual o valor que pretende investir?"
 
 Cliente: "2 quartos, apartamento, Itaquaquecetuba, até 230 mil"
 Você: "Perfeito! Achei 2 ótimas opções em Itaquaquecetuba no seu orçamento:
@@ -292,12 +316,12 @@ Lembre-se: Você é um pré-filtro inteligente. Qualifique bem o lead e deixe o 
 /**
  * Send message to OpenAI and get AI response
  */
-async function getAIResponse(userMessage, conversationHistory, properties, customerInfo) {
+async function getAIResponse(userMessage, conversationHistory, properties, customerInfo, typebotLeadInfo = null) {
   try {
     const messages = [
       {
         role: 'system',
-        content: getSystemPrompt(properties, customerInfo)
+        content: getSystemPrompt(properties, customerInfo, typebotLeadInfo)
       },
       ...conversationHistory,
       {
@@ -696,6 +720,19 @@ async function createCalendlyLink(propertyId, customerName, customerPhone) {
  */
 async function processMessage(phoneNumber, message, propertyId = null) {
   try {
+    // Check if this is a Typebot lead
+    const isFromTypebot = await isTypebotLead(phoneNumber);
+    let typebotLeadInfo = null;
+
+    if (isFromTypebot) {
+      typebotLeadInfo = await getTypebotLead(phoneNumber);
+      console.log(`📋 Typebot lead detected: ${phoneNumber}`, {
+        name: typebotLeadInfo?.leadInfo?.name,
+        interest: typebotLeadInfo?.leadInfo?.interest,
+        location: typebotLeadInfo?.leadInfo?.location
+      });
+    }
+
     // Get customer history from Redis (or fallback to memory)
     let persistentHistory = await getCustomerHistory(phoneNumber);
 
@@ -709,7 +746,8 @@ async function processMessage(phoneNumber, message, propertyId = null) {
       persistentHistory = {
         firstContact: new Date(),
         lastContact: new Date(),
-        totalMessages: 1
+        totalMessages: 1,
+        source: isFromTypebot ? 'typebot' : 'direct'
       };
     } else {
       // Returning customer - update history
@@ -729,7 +767,9 @@ async function processMessage(phoneNumber, message, propertyId = null) {
       isReturningCustomer: persistentHistory.totalMessages > 1,
       lastContact: persistentHistory.lastContact.getTime(),
       totalMessages: persistentHistory.totalMessages,
-      firstContact: persistentHistory.firstContact
+      firstContact: persistentHistory.firstContact,
+      source: persistentHistory.source || 'direct',
+      isTypebotLead: isFromTypebot
     };
 
     console.log(`Customer info for ${phoneNumber}:`, {
@@ -780,8 +820,8 @@ async function processMessage(phoneNumber, message, propertyId = null) {
       hasActiveConversation: context.history.length > 0
     });
 
-    // Get AI response with customer info
-    const aiResponse = await getAIResponse(message, context.history, formattedProperties, customerInfo);
+    // Get AI response with customer info (including Typebot lead info if available)
+    const aiResponse = await getAIResponse(message, context.history, formattedProperties, customerInfo, typebotLeadInfo);
 
     // Update conversation history
     context.history.push({
@@ -803,6 +843,12 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     if (!contextSaved) {
       // Save to fallback if Redis fails
       conversationContextFallback.set(phoneNumber, context);
+    }
+
+    // Mark Typebot lead as processed after first successful interaction
+    if (isFromTypebot && typebotLeadInfo && !typebotLeadInfo.processed) {
+      await markTypebotLeadAsProcessed(phoneNumber);
+      console.log(`✅ Marked Typebot lead as processed: ${phoneNumber}`);
     }
 
     // Check if customer is EXPLICITLY asking for property information OR if AI says it will send

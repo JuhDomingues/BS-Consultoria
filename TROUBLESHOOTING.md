@@ -261,7 +261,7 @@ pm2 restart sdr-server
 
 2. **Bot deve responder:**
    ```
-   Oi! Sou a Susi 😊 Me conta: quantos quartos você precisa?...
+   Oi! Sou a Mia 😊 Me conta: quantos quartos você precisa?...
    ```
 
 3. **Continuar conversa:**

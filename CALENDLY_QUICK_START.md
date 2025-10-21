@@ -78,7 +78,7 @@ Envie mensagens para o número do WhatsApp Business:
 
 ```
 Você: Olá
-Bot: Oi! Sou a Susi 😊 Me conta...
+Bot: Oi! Sou a Mia 😊 Me conta...
 
 Você: Quero ver apartamentos de 2 quartos
 Bot: [Mostra opções]
