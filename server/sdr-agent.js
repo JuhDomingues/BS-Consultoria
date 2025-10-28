@@ -751,13 +751,10 @@ ${description}
 
         // After all images are sent, send CTA message
         const ctaMessage = `━━━━━━━━━━━━━━━━━━━━
-📅 *AGENDE SUA VISITA!*
 
-Gostou do imóvel? Vamos agendar uma visita presencial para você conhecer todos os detalhes!
+Gostou do imóvel?
 
-👉 *Responda com "AGENDAR VISITA"*
-
-Ou clique aqui para falar com nosso consultor:
+👉 Clique aqui para falar com nosso consultor e agendar sua visita:
 https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!`;
 
         // Small delay before sending CTA
