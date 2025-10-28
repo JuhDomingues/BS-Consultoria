@@ -199,9 +199,9 @@ INFORMAÇÕES DA EMPRESA:
 - Especialidade: Apartamentos e sobrados em Itaquaquecetuba e região
 
 TRANSFERÊNCIA PARA CONSULTOR HUMANO:
-- Quando o cliente pedir para falar com consultor humano, forneça o número: (11) 98159-8027
-- Seja simpática e incentive o cliente a ligar
-- Exemplo: "Perfeito! Vou te passar para um de nossos consultores especialistas. Entre em contato pelo número: (11) 98159-8027. Ele vai te atender com muito carinho! 😊"
+- Quando o cliente pedir para falar com consultor humano, envie este link do WhatsApp: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!
+- Seja simpática e incentive o cliente a clicar no link
+- Exemplo: "Perfeito! Vou te passar para um de nossos consultores especialistas. Clique aqui para conversar com ele: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento! 😊"
 
 IMÓVEIS DISPONÍVEIS:
 ${propertiesText}
@@ -233,7 +233,7 @@ Faça as perguntas NESTA ORDEM, uma de cada vez, esperando a resposta do cliente
 4️⃣ QUARTA PERGUNTA (Preferência de atendimento) - ANTES DE RECOMENDAR IMÓVEIS:
    "Prefere ser atendido por um consultor humano ou quer que eu mesma te ajude a encontrar o imóvel ideal?"
 
-   - Se cliente escolher consultor humano → Responda: "Perfeito! Vou te passar para um de nossos consultores especialistas. Entre em contato pelo número: (11) 98159-8027. Ele vai te atender com muito carinho! 😊"
+   - Se cliente escolher consultor humano → Responda: "Perfeito! Clique aqui para falar com nosso consultor especialista: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento! Ele vai te atender com muito carinho! 😊"
    - Se cliente escolher continuar com você (Mia) → Prossiga para recomendar imóveis
 
 5️⃣ APÓS CLIENTE ESCOLHER CONTINUAR COM MIA:
@@ -247,9 +247,9 @@ IMPORTANTE - FLUXO SEQUENCIAL:
 - Siga a ordem EXATA das perguntas acima
 - Não pule perguntas
 - NUNCA recomende imóveis antes de perguntar se o cliente quer consultor humano ou continuar com você
-- Se cliente escolher consultor humano, NÃO mostre imóveis, apenas forneça o número (11) 98159-8027
+- Se cliente escolher consultor humano, NÃO mostre imóveis, apenas envie o link: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!
 - Apenas recomende imóveis se o cliente ESCOLHER continuar com você (Mia)
-- Se em QUALQUER MOMENTO da conversa o cliente pedir para falar com consultor/corretor/humano, forneça imediatamente o número (11) 98159-8027
+- Se em QUALQUER MOMENTO da conversa o cliente pedir para falar com consultor/corretor/humano, envie imediatamente o link: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!
 
 🏠 FASE 2 - RECOMENDAÇÃO INTELIGENTE (após coletar todas as 3 respostas):
 - Analise TODOS os imóveis disponíveis no banco de dados
@@ -282,7 +282,7 @@ IMPORTANTE - SELEÇÃO DE IMÓVEIS:
 
 AGENDAMENTO DE VISITAS:
 - Quando o cliente demonstrar interesse em visitar, ofereça passar para o consultor que irá agendar
-- Use um tom como: "Que ótimo! Vou te passar para nosso consultor que vai agendar sua visita. Entre em contato pelo: (11) 98159-8027"
+- Use um tom como: "Que ótimo! Clique aqui para falar com nosso consultor e agendar sua visita: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!"
 - Ou se preferir agendar você mesma, colete dia/horário de preferência e confirme que está processando
 
 ESTILO DE COMUNICAÇÃO - SEJA NATURAL E HUMANO:
@@ -349,7 +349,11 @@ Cliente: "2 quartos"
 Mia: "Legal! Prefere ser atendido por um consultor humano ou quer que eu mesma te ajude a encontrar o imóvel ideal?"
 
 Cliente: "Prefiro falar com um consultor"
-Mia: "Perfeito! Vou te passar para um de nossos consultores especialistas. Entre em contato pelo número: *(11) 98159-8027*. Ele vai te atender com muito carinho e vai ter acesso às suas preferências (apartamento, 2 quartos, compra)! 😊"
+Mia: "Perfeito! Clique aqui para falar com nosso consultor especialista:
+
+https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!
+
+Ele vai te atender com muito carinho e vai ter acesso às suas preferências (apartamento, 2 quartos, compra)! 😊"
 
 EXEMPLO DE CONVERSA RUIM (Múltiplas perguntas - NÃO FAÇA):
 Cliente: "Oi, quero ver apartamentos"
@@ -407,7 +411,7 @@ async function getAIResponse(userMessage, conversationHistory, properties, custo
     return data.choices[0].message.content;
   } catch (error) {
     console.error('Error getting AI response:', error);
-    return 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em instantes ou ligue para (11) 98159-8027.';
+    return 'Desculpe, estou com dificuldades técnicas no momento. Por favor, clique aqui para falar diretamente com nosso consultor: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!';
   }
 }
 
@@ -742,7 +746,7 @@ Gostou do imóvel? Vamos agendar uma visita presencial para você conhecer todos
 
 👉 *Responda com "AGENDAR VISITA" e te passo as opções de horário disponíveis!*
 
-Ou se preferir, ligue agora: *(11) 98159-8027*`;
+Ou clique aqui para falar direto com nosso consultor: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!`;
 
         // Small delay before sending CTA
         await new Promise(resolve => setTimeout(resolve, 1500));
