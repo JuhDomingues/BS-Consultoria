@@ -26,8 +26,14 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env.local from project root
-dotenv.config({ path: join(__dirname, '..', '.env.local') });
+// Load environment variables from .env or .env.local
+// In production (VPS): loads .env
+// In development (local): loads .env.local
+const envPath = process.env.NODE_ENV === 'production'
+  ? join(__dirname, '..', '.env')
+  : join(__dirname, '..', '.env.local');
+dotenv.config({ path: envPath });
+console.log(`Loading environment from: ${envPath}`);
 
 // Server-side environment variables (SECURE - never exposed to frontend)
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
