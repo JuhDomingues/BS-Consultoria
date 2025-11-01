@@ -10,8 +10,14 @@ import dotenv from 'dotenv';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+// Load environment variables from .env or .env.local
+// In production (VPS): loads .env
+// In development (local): loads .env.local
+const envPath = process.env.NODE_ENV === 'production'
+  ? path.join(__dirname, '..', '.env')
+  : path.join(__dirname, '..', '.env.local');
+dotenv.config({ path: envPath });
+console.log(`Loading environment from: ${envPath}`);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
