@@ -101,7 +101,7 @@ const PropertyDetail = () => {
     const message = encodeURIComponent(
       `Olá! Vi o imóvel "${property.title}" no site e gostaria de mais informações.`
     );
-    window.open(`https://wa.me/5511968838236?text=${message}`, '_blank');
+    window.open(`https://wa.me/5511930595781?text=${message}`, '_blank');
   };
 
   return (
