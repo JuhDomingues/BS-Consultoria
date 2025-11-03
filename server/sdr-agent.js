@@ -1130,19 +1130,22 @@ O cliente JÁ SABE qual imóvel quer. NÃO faça qualificação, vá direto ao p
         });
       }
 
-      // Priority 2: If came from property page with specific ID
+      // Priority 2: Use context property ID FIRST (when customer confirms they want to see photos)
+      // This is crucial for when customer replies "quero" after being asked
+      if (!propertyToSend && context.propertyId && !messagePropertyType) {
+        propertyToSend = activeProperties.find(p => p.id === parseInt(context.propertyId));
+        if (propertyToSend) {
+          console.log(`✅ Using property from context: ${propertyToSend['Title'] || propertyToSend['Título']} (ID: ${context.propertyId})`);
+        }
+      }
+
+      // Priority 3: If came from property page with specific ID (first message)
       if (!propertyToSend && cameFromPropertyPage && propertyId) {
         propertyToSend = activeProperties.find(p => p.id === parseInt(propertyId));
         if (propertyToSend) {
           context.propertyId = propertyId;
-          console.log(`Customer came from property page: ${propertyToSend['Title'] || propertyToSend['Título']} (ID: ${propertyId})`);
+          console.log(`✅ Customer came from property page: ${propertyToSend['Title'] || propertyToSend['Título']} (ID: ${propertyId})`);
         }
-      }
-
-      // Priority 3: Use context property ID only if no specific property requested
-      if (!propertyToSend && context.propertyId && !messagePropertyType) {
-        propertyToSend = activeProperties.find(p => p.id === parseInt(context.propertyId));
-        console.log(`Using property from context: ${propertyToSend?.['Title'] || propertyToSend?.['Título']} (ID: ${context.propertyId})`);
       }
 
       // Set flags to send property details
