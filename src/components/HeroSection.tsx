@@ -16,14 +16,14 @@ const HeroSection = () => {
   };
 
   const contactWhatsApp = () => {
-    // Featured property details from Hero Section
+    // Simple message format to avoid emoji encoding issues
     const propertyDetails = [
       `Olá! Vi o imóvel no site e gostaria de mais informações.`,
       ``,
-      `📍 *Residencial Bela Vista*`,
-      `📌 Parque Residencial Scaffidi`,
-      `💰 R$ 215.000`,
-      `🛏️ 2 quartos`,
+      `*Residencial Bela Vista*`,
+      `Bairro: Parque Residencial Scaffidi`,
+      `Preço: R$ 215.000`,
+      `Quartos: 2`,
       ``,
       `Código do imóvel: 125`
     ].join('\n');

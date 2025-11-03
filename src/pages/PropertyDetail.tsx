@@ -98,14 +98,14 @@ const PropertyDetail = () => {
   };
 
   const contactWhatsApp = () => {
-    // Include specific details to help the agent identify the exact property
+    // Simple message format to avoid emoji encoding issues
     const propertyDetails = [
       `Olá! Vi o imóvel no site e gostaria de mais informações.`,
       ``,
-      `📍 *${property.title}*`,
-      `📌 ${property.neighborhood}`,
-      `💰 ${property.price}`,
-      property.bedrooms ? `🛏️ ${property.bedrooms} quartos` : '',
+      `*${property.title}*`,
+      `Bairro: ${property.neighborhood}`,
+      `Preço: ${property.price}`,
+      property.bedrooms ? `Quartos: ${property.bedrooms}` : '',
       ``,
       `Código do imóvel: ${property.id}`
     ].filter(line => line !== '').join('\n');
