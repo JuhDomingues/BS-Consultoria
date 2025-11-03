@@ -621,10 +621,24 @@ function detectPropertyInfoRequest(message) {
     'manda pra mim',
     'envia pra mim',
     'sim, quero',
-    'sim quero'
+    'sim quero',
+    'quero',
+    'sim',
+    'pode ser',
+    'claro',
+    'com certeza',
+    'manda',
+    'envia'
   ];
 
-  const lowerMessage = message.toLowerCase();
+  const lowerMessage = message.toLowerCase().trim();
+
+  // Verificar se é uma resposta curta afirmativa
+  const shortAffirmatives = ['quero', 'sim', 'pode ser', 'claro', 'com certeza', 'ok', 'yes', 'manda', 'envia'];
+  if (shortAffirmatives.includes(lowerMessage)) {
+    return true;
+  }
+
   return explicitKeywords.some(keyword => lowerMessage.includes(keyword));
 }
 
