@@ -230,6 +230,15 @@ IMPORTANTE - REGRAS OBRIGATÓRIAS:
 8. Cliente pedindo foto/detalhes específicos = NÃO responda com texto! O sistema enviará automaticamente as fotos e detalhes completos
 9. NUNCA diga que "não pode enviar fotos" ou "vou enviar" - o sistema faz isso automaticamente sem você precisar avisar
 
+IMPORTANTE - CLIENTE VEIO DO SITE COM IMÓVEL ESPECÍFICO:
+⚠️ Se o cliente JÁ mencionou um imóvel específico na primeira mensagem (com título, bairro, preço, ou "Código do imóvel"), significa que ele VEIO DO SITE e já sabe qual imóvel quer:
+- NÃO faça o fluxo de qualificação completo
+- NÃO pergunte tipo de imóvel, quartos, localização - ele JÁ escolheu
+- Seja DIRETA e OBJETIVA
+- Responda: "Oi! Sou a Mia 😊 Vi que você tá interessado no [nome do imóvel]! Quer que eu te mande as fotos e detalhes completos?"
+- Aguarde resposta
+- Se ele disser sim, responda apenas "👍" (o sistema envia automaticamente)
+
 ESTRATÉGIA DE ATENDIMENTO:
 🎯 FASE 1 - QUALIFICAÇÃO SEQUENCIAL (uma pergunta por vez):
 Faça as perguntas NESTA ORDEM, uma de cada vez, esperando a resposta do cliente antes de fazer a próxima:
@@ -796,6 +805,13 @@ async function createCalendlyLink(propertyId, customerName, customerPhone) {
  */
 async function processMessage(phoneNumber, message, propertyId = null) {
   try {
+    // Check if message contains "Código do imóvel" and extract ID
+    const propertyCodeMatch = message.match(/Código do imóvel:?\s*(\d+)/i);
+    if (propertyCodeMatch && propertyCodeMatch[1]) {
+      propertyId = propertyCodeMatch[1];
+      console.log(`📌 Extracted property ID from message: ${propertyId}`);
+    }
+
     // Check if this is a Typebot lead
     const isFromTypebot = await isTypebotLead(phoneNumber);
     let typebotLeadInfo = null;
@@ -878,7 +894,20 @@ async function processMessage(phoneNumber, message, propertyId = null) {
       const properties = await getAllProperties();
       const property = properties.find(p => p.id === parseInt(propertyId));
       if (property) {
-        const contextMessage = `Cliente está interessado no imóvel: ${property['Título'] || property.title} (ID: ${propertyId})`;
+        const title = property['Title'] || property['Título'] || property.title;
+        const neighborhood = property['neighborhood'] || property['Bairro'] || property.neighborhood;
+        const price = property['Price'] || property['Preço'] || property.price;
+        const bedrooms = property['bedrooms'] || property['Quartos'] || property.bedrooms;
+
+        const contextMessage = `🎯 CONTEXTO IMPORTANTE: Cliente veio do SITE e está interessado especificamente neste imóvel:
+- Imóvel: ${title}
+- Bairro: ${neighborhood}
+- Preço: ${price}
+- Quartos: ${bedrooms}
+- ID: ${propertyId}
+
+O cliente JÁ SABE qual imóvel quer. NÃO faça qualificação, vá direto ao ponto e ofereça enviar fotos/detalhes.`;
+
         context.history.push({
           role: 'system',
           content: contextMessage

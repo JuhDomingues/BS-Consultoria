@@ -98,9 +98,19 @@ const PropertyDetail = () => {
   };
 
   const contactWhatsApp = () => {
-    const message = encodeURIComponent(
-      `Olá! Vi o imóvel "${property.title}" no site e gostaria de mais informações.`
-    );
+    // Include specific details to help the agent identify the exact property
+    const propertyDetails = [
+      `Olá! Vi o imóvel no site e gostaria de mais informações.`,
+      ``,
+      `📍 *${property.title}*`,
+      `📌 ${property.neighborhood}`,
+      `💰 ${property.price}`,
+      property.bedrooms ? `🛏️ ${property.bedrooms} quartos` : '',
+      ``,
+      `Código do imóvel: ${property.id}`
+    ].filter(line => line !== '').join('\n');
+
+    const message = encodeURIComponent(propertyDetails);
     window.open(`https://wa.me/5511930595781?text=${message}`, '_blank');
   };
 
