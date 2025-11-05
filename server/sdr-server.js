@@ -624,14 +624,22 @@ function extractLeadInfoFromTypebot(typebotData) {
     });
   }
 
-  // Extract common fields
+  // Extract basic fields
   leadInfo.name = extractFieldFromTypebot(typebotData, ['name', 'nome', 'customerName']);
   leadInfo.email = extractFieldFromTypebot(typebotData, ['email', 'emailAddress']);
   leadInfo.phone = extractFieldFromTypebot(typebotData, ['phone', 'phoneNumber', 'telefone']);
-  leadInfo.interest = extractFieldFromTypebot(typebotData, ['interest', 'interesse', 'propertyType', 'tipoImovel']);
-  leadInfo.budget = extractFieldFromTypebot(typebotData, ['budget', 'orcamento', 'valorMaximo']);
-  leadInfo.location = extractFieldFromTypebot(typebotData, ['location', 'localizacao', 'bairro', 'cidade']);
-  leadInfo.message = extractFieldFromTypebot(typebotData, ['message', 'mensagem', 'observacoes']);
+
+  // Extract specific fields for BS Consultoria form
+  leadInfo.tipoTransacao = extractFieldFromTypebot(typebotData, ['tipoTransacao', 'tipo_transacao', 'transacao', 'procurando', 'objetivo']);
+  leadInfo.tipoImovel = extractFieldFromTypebot(typebotData, ['tipoImovel', 'tipo_imovel', 'tipo', 'propertyType', 'imovel']);
+  leadInfo.budgetCompra = extractFieldFromTypebot(typebotData, ['budgetCompra', 'budget_compra', 'valorCompra', 'faixaValorCompra', 'orcamentoCompra']);
+  leadInfo.budgetLocacao = extractFieldFromTypebot(typebotData, ['budgetLocacao', 'budget_locacao', 'valorLocacao', 'faixaValorLocacao', 'orcamentoLocacao', 'aluguel']);
+  leadInfo.localizacao = extractFieldFromTypebot(typebotData, ['localizacao', 'location', 'bairro', 'regiao', 'cidade']);
+  leadInfo.prazo = extractFieldFromTypebot(typebotData, ['prazo', 'prazoMudanca', 'prazo_mudanca', 'quando', 'urgencia']);
+  leadInfo.financiamento = extractFieldFromTypebot(typebotData, ['financiamento', 'situacaoFinanceira', 'situacao_financeira', 'pagamento']);
+
+  // Optional fields
+  leadInfo.message = extractFieldFromTypebot(typebotData, ['message', 'mensagem', 'observacoes', 'comentario']);
 
   return leadInfo;
 }

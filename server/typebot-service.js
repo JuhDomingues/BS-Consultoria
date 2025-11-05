@@ -193,6 +193,7 @@ export function formatTypebotLeadForAI(leadInfo) {
 
   parts.push('INFORMAÇÕES DO LEAD (via Typebot):');
 
+  // Informações básicas
   if (leadInfo.name) {
     parts.push(`- Nome: ${leadInfo.name}`);
   }
@@ -205,27 +206,53 @@ export function formatTypebotLeadForAI(leadInfo) {
     parts.push(`- Telefone: ${leadInfo.phone}`);
   }
 
-  if (leadInfo.interest) {
-    parts.push(`- Interesse: ${leadInfo.interest}`);
+  // Informações de preferência do cliente
+  if (leadInfo.tipoTransacao) {
+    parts.push(`- Procura imóvel para: ${leadInfo.tipoTransacao}`);
   }
 
-  if (leadInfo.budget) {
-    parts.push(`- Orçamento: ${leadInfo.budget}`);
+  if (leadInfo.tipoImovel) {
+    parts.push(`- Tipo de imóvel: ${leadInfo.tipoImovel}`);
   }
 
-  if (leadInfo.location) {
-    parts.push(`- Localização preferida: ${leadInfo.location}`);
+  // Orçamento (diferente para compra ou locação)
+  if (leadInfo.budgetCompra) {
+    parts.push(`- Faixa de valor para compra: ${leadInfo.budgetCompra}`);
+  }
+
+  if (leadInfo.budgetLocacao) {
+    parts.push(`- Faixa de valor para locação/aluguel: ${leadInfo.budgetLocacao}`);
+  }
+
+  if (leadInfo.localizacao) {
+    parts.push(`- Localização/bairro preferido: ${leadInfo.localizacao}`);
+  }
+
+  // Informações de urgência e financiamento
+  if (leadInfo.prazo) {
+    parts.push(`- Prazo para mudança/fechamento: ${leadInfo.prazo}`);
+  }
+
+  if (leadInfo.financiamento) {
+    parts.push(`- Situação financeira: ${leadInfo.financiamento}`);
   }
 
   if (leadInfo.message) {
-    parts.push(`- Mensagem: ${leadInfo.message}`);
+    parts.push(`- Mensagem adicional: ${leadInfo.message}`);
   }
 
-  // Add custom answers
+  // Add custom answers (fallback para campos não mapeados)
   if (leadInfo.answers && Object.keys(leadInfo.answers).length > 0) {
-    parts.push('\nRESPOSTAS DO FORMULÁRIO:');
-    for (const [key, value] of Object.entries(leadInfo.answers)) {
-      if (value && !['phone', 'telefone', 'email', 'name', 'nome'].some(k => key.toLowerCase().includes(k))) {
+    const mappedFields = ['phone', 'telefone', 'email', 'name', 'nome', 'tipotransacao', 'tipoimovel',
+                          'budgetcompra', 'budgetlocacao', 'localizacao', 'prazo', 'financiamento'];
+
+    const unmappedAnswers = Object.entries(leadInfo.answers).filter(([key, value]) =>
+      value && !mappedFields.some(field => key.toLowerCase().includes(field))
+    );
+
+    if (unmappedAnswers.length > 0) {
+      parts.push('\nOUTRAS RESPOSTAS:');
+      for (const [key, value] of unmappedAnswers) {
         parts.push(`- ${key}: ${value}`);
       }
     }

@@ -121,14 +121,22 @@ function extractLeadInfo(typebotData) {
     });
   }
 
-  // Extrair campos comuns
+  // Extrair campos básicos
   leadInfo.name = extractField(typebotData, ['name', 'nome', 'customerName']);
   leadInfo.email = extractField(typebotData, ['email', 'emailAddress']);
   leadInfo.phone = extractField(typebotData, ['phone', 'phoneNumber', 'telefone']);
-  leadInfo.interest = extractField(typebotData, ['interest', 'interesse', 'propertyType', 'tipoImovel']);
-  leadInfo.budget = extractField(typebotData, ['budget', 'orcamento', 'valorMaximo']);
-  leadInfo.location = extractField(typebotData, ['location', 'localizacao', 'bairro', 'cidade']);
-  leadInfo.message = extractField(typebotData, ['message', 'mensagem', 'observacoes']);
+
+  // Extrair campos específicos do formulário BS Consultoria
+  leadInfo.tipoTransacao = extractField(typebotData, ['tipoTransacao', 'tipo_transacao', 'transacao', 'procurando', 'objetivo']);
+  leadInfo.tipoImovel = extractField(typebotData, ['tipoImovel', 'tipo_imovel', 'tipo', 'propertyType', 'imovel']);
+  leadInfo.budgetCompra = extractField(typebotData, ['budgetCompra', 'budget_compra', 'valorCompra', 'faixaValorCompra', 'orcamentoCompra']);
+  leadInfo.budgetLocacao = extractField(typebotData, ['budgetLocacao', 'budget_locacao', 'valorLocacao', 'faixaValorLocacao', 'orcamentoLocacao', 'aluguel']);
+  leadInfo.localizacao = extractField(typebotData, ['localizacao', 'location', 'bairro', 'regiao', 'cidade']);
+  leadInfo.prazo = extractField(typebotData, ['prazo', 'prazoMudanca', 'prazo_mudanca', 'quando', 'urgencia']);
+  leadInfo.financiamento = extractField(typebotData, ['financiamento', 'situacaoFinanceira', 'situacao_financeira', 'pagamento']);
+
+  // Campos opcionais
+  leadInfo.message = extractField(typebotData, ['message', 'mensagem', 'observacoes', 'comentario']);
 
   return leadInfo;
 }
