@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import { processMessage, sendWhatsAppMessage, getAllProperties } from './sdr-agent.js';
 import { schedulePropertyVisit, handleCalendlyWebhook, getAllScheduledReminders } from './scheduling-service.js';
 import { formatSchedulingMessage } from './calendly-service.js';
-import { saveTypebotLead, getTypebotLead, getUnprocessedTypebotLeads } from './typebot-service.js';
+import { saveTypebotLead, getTypebotLead, getUnprocessedTypebotLeads, deleteTypebotLead } from './typebot-service.js';
 
 dotenv.config();
 
@@ -498,6 +498,24 @@ app.get('/api/typebot-leads/:phoneNumber', async (req, res) => {
   } catch (error) {
     console.error('Error fetching Typebot lead:', error);
     res.status(500).json({ error: 'Failed to fetch Typebot lead' });
+  }
+});
+
+/**
+ * API endpoint to delete Typebot lead (for testing/cleanup)
+ */
+app.delete('/api/typebot-leads/:phoneNumber', async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    await deleteTypebotLead(phoneNumber);
+
+    res.json({
+      success: true,
+      message: `Lead ${phoneNumber} deleted successfully`
+    });
+  } catch (error) {
+    console.error('Error deleting Typebot lead:', error);
+    res.status(500).json({ error: 'Failed to delete Typebot lead' });
   }
 });
 
