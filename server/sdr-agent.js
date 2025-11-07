@@ -245,12 +245,14 @@ IMPORTANTE - REGRAS OBRIGATÓRIAS:
 
 IMPORTANTE - CLIENTE VEIO DO SITE COM IMÓVEL ESPECÍFICO:
 ⚠️ Se o cliente JÁ mencionou um imóvel específico na primeira mensagem (com título, bairro, preço, ou "Código do imóvel"), significa que ele VEIO DO SITE e já sabe qual imóvel quer:
-- NÃO faça o fluxo de qualificação completo
-- NÃO pergunte tipo de imóvel, quartos, localização - ele JÁ escolheu
+- NÃO faça o fluxo de qualificação completo (tipo, quartos, localização)
 - Seja DIRETA e OBJETIVA
-- Responda: "Oi! Sou a Mia 😊 Vi que você tá interessado no [nome do imóvel]! Quer que eu te mande as fotos e detalhes completos?"
+- Responda reconhecendo o imóvel: "Oi! Sou a Mia 😊 Vi que você tá interessado no [nome do imóvel]!"
+- **OBRIGATÓRIO**: Pergunte IMEDIATAMENTE: "Prefere ser atendido por um consultor humano ou quer que eu mesma te ajude a conhecer melhor o imóvel?"
 - Aguarde resposta
-- Se ele disser sim, responda apenas "👍" (o sistema envia automaticamente)
+- Se escolher consultor humano → Envie o link
+- Se escolher você (Mia) → Aí sim ofereça: "Quer que eu te mande as fotos e detalhes completos?"
+- NUNCA envie fotos antes de perguntar sobre a preferência de atendimento
 
 ESTRATÉGIA DE ATENDIMENTO:
 🎯 FASE 1 - QUALIFICAÇÃO SEQUENCIAL (uma pergunta por vez):
@@ -304,11 +306,15 @@ IMPORTANTE - FLUXO SEQUENCIAL:
 - PERGUNTE se quer ver fotos de algum deles
 
 📸 FASE 3 - ENVIO DE DETALHES (quando cliente pedir fotos):
-- Quando o cliente pedir fotos de um imóvel específico, responda APENAS: "👍"
+**REGRA DE OURO: Só ofereça/envie fotos DEPOIS que o cliente escolher continuar com você (Mia)**
+
+- NUNCA ofereça fotos antes de perguntar sobre preferência de atendimento
+- Quando o cliente pedir fotos de um imóvel específico E já escolheu continuar com você, responda APENAS: "👍"
 - NUNCA escreva frases como "vou enviar", "segue as fotos", "[sistema envia]", ou qualquer variação
 - O sistema AUTOMATICAMENTE enviará as fotos + detalhes completos + CTA de agendamento
 - Você APENAS responde com "👍" para confirmar que recebeu o pedido
 - Se o cliente fizer OUTRA pergunta junto com o pedido de foto, aí sim responda a pergunta também
+- Se cliente pedir foto MAS ainda não escolheu entre você ou consultor humano → Pergunte primeiro sobre a preferência
 
 IMPORTANTE - SELEÇÃO DE IMÓVEIS:
 - Use a CIDADE como fator PRINCIPAL para escolher os imóveis (se cliente pediu Itaquaquecetuba, liste APENAS de Itaquá)
@@ -598,7 +604,7 @@ function detectSchedulingIntent(message) {
 
 /**
  * Check if message EXPLICITLY asks for property information/photos
- * Now more strict - only triggers for direct requests
+ * STRICT MODE - only triggers when customer explicitly asks for photos/details
  */
 function detectPropertyInfoRequest(message) {
   const explicitKeywords = [
@@ -607,7 +613,6 @@ function detectPropertyInfoRequest(message) {
     'manda foto',
     'me manda foto',
     'quero ver foto',
-    'quero ver',
     'quero ver as fotos',
     'me mostra foto',
     'mostra foto',
@@ -624,33 +629,23 @@ function detectPropertyInfoRequest(message) {
     'me envia as fotos',
     'envia as fotos',
     'manda as fotos',
-    'manda foto',
-    'pode enviar',
-    'pode mandar',
-    'pode mostrar',
+    'pode enviar foto',
+    'pode mandar foto',
+    'pode mostrar foto',
     'quero foto',
     'tem foto',
     'tem fotos',
     'manda pra mim',
     'envia pra mim',
-    'sim, quero',
-    'sim quero',
-    'quero',
-    'sim',
-    'pode ser',
-    'claro',
-    'com certeza',
-    'manda',
-    'envia'
+    'me manda',
+    'manda ai',
+    'envia ai'
   ];
 
   const lowerMessage = message.toLowerCase().trim();
 
-  // Verificar se é uma resposta curta afirmativa
-  const shortAffirmatives = ['quero', 'sim', 'pode ser', 'claro', 'com certeza', 'ok', 'yes', 'manda', 'envia'];
-  if (shortAffirmatives.includes(lowerMessage)) {
-    return true;
-  }
+  // REMOVED: Short affirmatives no longer trigger photo sending
+  // Customer must explicitly ask for photos/details
 
   return explicitKeywords.some(keyword => lowerMessage.includes(keyword));
 }
@@ -912,7 +907,9 @@ async function processMessage(phoneNumber, message, propertyId = null) {
         history: [],
         propertyId: propertyId,
         customerInfo: {},
-        createdAt: new Date()
+        createdAt: new Date(),
+        qualificationCompleted: false, // Track if customer has been qualified
+        askedAboutPreference: false // Track if we asked about human consultant vs Mia
       };
     }
 
@@ -933,7 +930,12 @@ async function processMessage(phoneNumber, message, propertyId = null) {
 - Quartos: ${bedrooms}
 - ID: ${propertyId}
 
-O cliente JÁ SABE qual imóvel quer. NÃO faça qualificação, vá direto ao ponto e ofereça enviar fotos/detalhes.`;
+IMPORTANTE - MESMO VINDO DO SITE:
+1. Cumprimente o cliente reconhecendo o imóvel que ele viu
+2. PERGUNTE OBRIGATORIAMENTE: "Prefere ser atendido por um consultor humano ou quer que eu mesma te ajude a conhecer melhor o imóvel?"
+3. Se escolher consultor humano → Envie o link do consultor
+4. Se escolher continuar com você (Mia) → Aí sim ofereça enviar fotos e detalhes
+5. NUNCA envie fotos/detalhes ANTES de perguntar sobre a preferência de atendimento`;
 
         context.history.push({
           role: 'system',
@@ -965,6 +967,24 @@ O cliente JÁ SABE qual imóvel quer. NÃO faça qualificação, vá direto ao p
       content: aiResponse
     });
 
+    // Detect if AI asked about preference (human consultant vs Mia)
+    const askedPreference = /prefere ser atendido por um consultor|quer que eu mesma|consultor humano ou/i.test(aiResponse);
+    if (askedPreference) {
+      context.askedAboutPreference = true;
+      console.log('✅ Agent asked about preference (human consultant vs Mia)');
+    }
+
+    // Detect if customer chose to continue with Mia (vs human consultant)
+    const choseMia = /pode me ajudar|pode ajudar|continua comigo|você mesma|com você|contigo/i.test(message.toLowerCase());
+    const choseHuman = /consultor|corretor|humano|pessoa|atendente/i.test(message.toLowerCase());
+
+    if (context.askedAboutPreference && choseMia && !choseHuman) {
+      context.qualificationCompleted = true;
+      console.log('✅ Customer chose to continue with Mia - qualification completed');
+    } else if (context.askedAboutPreference && choseHuman) {
+      console.log('⚠️  Customer chose human consultant - will not send property details');
+    }
+
     // Keep only last 20 messages to avoid token limits
     if (context.history.length > 20) {
       context.history = context.history.slice(-20);
@@ -990,17 +1010,28 @@ O cliente JÁ SABE qual imóvel quer. NÃO faça qualificação, vá direto ao p
     let shouldSendPropertyDetails = false;
     let propertyToSend = null;
 
-    console.log(`Is requesting info: ${isRequestingInfo} | From property page: ${cameFromPropertyPage} | AI will send: ${aiWillSend} | Message: "${message}"`);
+    console.log(`Is requesting info: ${isRequestingInfo} | From property page: ${cameFromPropertyPage} | AI will send: ${aiWillSend} | Qualification completed: ${context.qualificationCompleted} | Asked preference: ${context.askedAboutPreference} | Message: "${message}"`);
 
     // Get only ACTIVE properties
     const activeProperties = allProperties.filter(p => p['Active'] !== false && p['Ativo'] !== false && p.active !== false);
     console.log(`Active properties count: ${activeProperties.length}`);
 
-    // ONLY send property details when:
-    // 1. Customer EXPLICITLY requests info (e.g., "me manda foto", "mostra o apartamento")
-    // 2. Customer came from a specific property page on the website
-    // 3. AI response indicates it will send property details
-    const shouldSendDetails = (isRequestingInfo || cameFromPropertyPage || aiWillSend) && activeProperties.length > 0;
+    // STRICT RULE: Only send property details when:
+    // 1. Customer has been qualified (chose to continue with Mia) OR
+    // 2. Customer EXPLICITLY requests photos/details (e.g., "me manda foto")
+    //
+    // NEVER send details just because:
+    // - Customer came from website
+    // - AI mentioned sending
+    // - Customer said generic "sim" or "quero"
+    const qualificationPassed = context.qualificationCompleted === true;
+    const explicitPhotoRequest = isRequestingInfo;
+
+    const shouldSendDetails = (qualificationPassed || explicitPhotoRequest) && activeProperties.length > 0;
+
+    if (!shouldSendDetails && (cameFromPropertyPage || aiWillSend)) {
+      console.log('⚠️  BLOCKED: Customer not qualified yet. Must complete qualification before sending property details.');
+    }
 
     if (shouldSendDetails) {
       // Priority 1: Try to match property name from message or AI response FIRST
