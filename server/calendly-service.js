@@ -22,7 +22,7 @@ const CALENDLY_API_KEY = process.env.CALENDLY_API_KEY;
 const CALENDLY_API_URL = 'https://api.calendly.com';
 const CALENDLY_EVENT_TYPE_UUID = process.env.CALENDLY_EVENT_TYPE_UUID;
 const CALENDLY_USER_URI = process.env.CALENDLY_USER_URI;
-const REALTOR_PHONE = process.env.REALTOR_PHONE || '5511981598027'; // Corretor responsável
+const REALTOR_PHONE = process.env.REALTOR_PHONE || '5511964583214'; // Corretor responsável
 
 /**
  * Get Calendly scheduling link with property details

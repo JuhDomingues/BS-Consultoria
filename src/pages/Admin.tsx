@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Plus, RefreshCw, Home, MessageSquare, LogOut, Search, Eye, Filter } from "lucide-react";
+import { Plus, RefreshCw, Home, MessageSquare, LogOut, Search, Eye, Filter, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Property } from "@/utils/parsePropertyData";
 import { PropertyForm } from "@/components/PropertyForm";
@@ -13,6 +13,7 @@ import { AIPropertyForm } from "@/components/AIPropertyForm";
 import { PropertyTable } from "@/components/PropertyTable";
 import { ConversationViewer } from "@/components/ConversationViewer";
 import { SDRMetrics } from "@/components/SDRMetrics";
+import { FeaturedPropertyManager } from "@/components/FeaturedPropertyManager";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -372,6 +373,10 @@ const Admin = () => {
         <Tabs defaultValue="properties" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="properties">Imóveis</TabsTrigger>
+            <TabsTrigger value="featured">
+              <Star className="h-4 w-4 mr-2" />
+              Imóvel em Destaque
+            </TabsTrigger>
             <TabsTrigger value="conversations">
               <MessageSquare className="h-4 w-4 mr-2" />
               Conversas SDR
@@ -459,6 +464,11 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Featured Property Tab */}
+          <TabsContent value="featured">
+            <FeaturedPropertyManager />
           </TabsContent>
 
           {/* Conversations Tab */}

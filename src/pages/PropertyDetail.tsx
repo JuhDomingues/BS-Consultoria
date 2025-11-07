@@ -111,7 +111,7 @@ const PropertyDetail = () => {
     ].filter(line => line !== '').join('\n');
 
     const message = encodeURIComponent(propertyDetails);
-    window.open(`https://wa.me/5511930595781?text=${message}`, '_blank');
+    window.open(`https://wa.me/5511964583214?text=${message}`, '_blank');
   };
 
   return (
@@ -339,7 +339,7 @@ const PropertyDetail = () => {
 
                   <Button variant="outline" className="w-full h-12 text-base">
                     <Phone className="h-5 w-5 mr-2" />
-                    (11) 98159-8027
+                    (11) 96458-3214
                   </Button>
                 </div>
 
