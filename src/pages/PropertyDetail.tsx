@@ -339,7 +339,7 @@ const PropertyDetail = () => {
 
                   <Button variant="outline" className="w-full h-12 text-base">
                     <Phone className="h-5 w-5 mr-2" />
-                    (11) 96458-3214
+                    (11) 98159-8027
                   </Button>
                 </div>
 

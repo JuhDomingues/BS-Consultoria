@@ -603,16 +603,18 @@ function detectSchedulingIntent(message) {
 }
 
 /**
- * Check if message EXPLICITLY asks for property information/photos
- * STRICT MODE - only triggers when customer explicitly asks for photos/details
+ * Check if message asks for property information/photos
+ * Includes both explicit requests AND affirmative responses to "want to see photos?"
  */
 function detectPropertyInfoRequest(message) {
-  const explicitKeywords = [
+  const keywords = [
+    // Explicit photo requests
     'me envia foto',
     'envia foto',
     'manda foto',
     'me manda foto',
     'quero ver foto',
+    'quero ver',
     'quero ver as fotos',
     'me mostra foto',
     'mostra foto',
@@ -629,9 +631,9 @@ function detectPropertyInfoRequest(message) {
     'me envia as fotos',
     'envia as fotos',
     'manda as fotos',
-    'pode enviar foto',
-    'pode mandar foto',
-    'pode mostrar foto',
+    'pode enviar',
+    'pode mandar',
+    'pode mostrar',
     'quero foto',
     'tem foto',
     'tem fotos',
@@ -639,15 +641,42 @@ function detectPropertyInfoRequest(message) {
     'envia pra mim',
     'me manda',
     'manda ai',
-    'envia ai'
+    'envia ai',
+    'mostra',
+    'manda'
   ];
 
   const lowerMessage = message.toLowerCase().trim();
 
-  // REMOVED: Short affirmatives no longer trigger photo sending
-  // Customer must explicitly ask for photos/details
+  // Check explicit keywords first
+  if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+    return true;
+  }
 
-  return explicitKeywords.some(keyword => lowerMessage.includes(keyword));
+  // Affirmative responses (when customer confirms they want to see photos)
+  const shortAffirmatives = [
+    'quero',
+    'sim',
+    'sim quero',
+    'pode ser',
+    'claro',
+    'com certeza',
+    'ok',
+    'yes',
+    'yeah',
+    'massa',
+    'beleza',
+    'isso',
+    'isso mesmo',
+    'uhum',
+    'ahan'
+  ];
+
+  if (shortAffirmatives.includes(lowerMessage)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
