@@ -812,6 +812,64 @@ function detectPropertyInfoRequest(message) {
 }
 
 /**
+ * Detect if user is referring to a property by position (first, second, third, etc.)
+ * Returns the position (0-indexed) or null if not detected
+ */
+function detectPropertyPosition(message) {
+  const lowerMessage = message.toLowerCase().trim();
+
+  // Patterns for "first" property (index 0)
+  const firstPatterns = [
+    /\bprimeir[oa]s?\b/,  // primeiro, primeira, primeiros, primeiras
+    /\b1[ºª°]?\b/,         // 1, 1º, 1ª, 1°
+    /\bop[cç][aã]o\s*1\b/, // opção 1, opcao 1, opção1
+    /\bo\s*1\b/,          // o 1
+    /\ba\s*1\b/,          // a 1
+    /\bum\s*$/,           // "um" no final
+    /\bdele\b/,           // "dele" (referring to first mentioned)
+    /\bdela\b/,           // "dela" (referring to first mentioned)
+    /\bdesse\b/,          // "desse" (referring to first mentioned)
+    /\bdessa\b/           // "dessa" (referring to first mentioned)
+  ];
+
+  // Patterns for "second" property (index 1)
+  const secondPatterns = [
+    /\bsegund[oa]s?\b/,   // segundo, segunda, segundos, segundas
+    /\b2[ºª°]?\b/,         // 2, 2º, 2ª, 2°
+    /\bop[cç][aã]o\s*2\b/, // opção 2, opcao 2, opção2
+    /\bo\s*2\b/,          // o 2
+    /\ba\s*2\b/,          // a 2
+    /\bdois\b/            // "dois"
+  ];
+
+  // Patterns for "both" (return -1 to indicate multiple)
+  const bothPatterns = [
+    /\bambas?\b/,         // ambas, ambo
+    /\bas\s*duas\b/,      // as duas
+    /\bos\s*dois\b/,      // os dois
+    /\btodas?\b/,         // todas, todo
+    /\btodos\b/           // todos
+  ];
+
+  // Check for "both/all"
+  if (bothPatterns.some(pattern => pattern.test(lowerMessage))) {
+    return -1; // Special value indicating "all"
+  }
+
+  // Check for "first"
+  if (firstPatterns.some(pattern => pattern.test(lowerMessage))) {
+    return 0;
+  }
+
+  // Check for "second"
+  if (secondPatterns.some(pattern => pattern.test(lowerMessage))) {
+    return 1;
+  }
+
+  return null; // No position detected
+}
+
+/**
  * Check if AI response indicates it will send property details
  */
 function aiWillSendPropertyDetails(aiResponse) {
@@ -1246,7 +1304,13 @@ IMPORTANTE - MESMO VINDO DO SITE:
       const wantsMultipleProperties = /ambas|as duas|os dois|todas|todos|duas|dois/.test(normalizedMessage) ||
                                       /fotos das|fotos dos|foto das|foto dos/.test(normalizedMessage);
 
-      if (!propertyToSend && (isRequestingInfo || normalizedMessage.includes('quero ver') || normalizedMessage === 'sim' || normalizedMessage === 'sim quero')) {
+      // Detect if user is referring to first, second, third property by position
+      const propertyPosition = detectPropertyPosition(normalizedMessage);
+      if (propertyPosition !== null) {
+        console.log(`🔢 Detected property position reference: ${propertyPosition === -1 ? 'ALL' : propertyPosition + 1}`);
+      }
+
+      if (!propertyToSend && (isRequestingInfo || normalizedMessage.includes('quero ver') || normalizedMessage === 'sim' || normalizedMessage === 'sim quero' || propertyPosition !== null)) {
         // Look at the last AI message to find which properties were mentioned
         const lastAIMessages = context.history.filter(h => h.role === 'assistant').slice(-2);
 
@@ -1254,8 +1318,46 @@ IMPORTANTE - MESMO VINDO DO SITE:
           const lastAIText = normalize(lastAIMessages[lastAIMessages.length - 1].content);
           console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 150)}..."`);
 
-          // If user wants multiple properties, try to extract ALL properties mentioned in last AI response
-          if (wantsMultipleProperties) {
+          // If user specified a position (first, second, etc.), extract that specific property
+          if (propertyPosition !== null && propertyPosition !== -1) {
+            console.log(`User requested property at position ${propertyPosition + 1}`);
+
+            // Find ALL properties mentioned in the last AI response
+            const propertiesInResponse = [];
+            for (const property of activeProperties) {
+              const title = normalize(property['Title'] || property['Título'] || property.title || '');
+              const neighborhood = normalize(property['neighborhood'] || property['Bairro'] || property.bairro || '');
+              const price = property['Price'] || property['Preço'] || property.price || '';
+
+              // Check if this property was mentioned in the AI response
+              const neighborhoodMatch = neighborhood.length > 0 && lastAIText.includes(neighborhood);
+              const priceMatch = price && lastAIText.includes(price.toLowerCase().replace(/\s/g, ''));
+
+              // Match title words (at least 2 words from title)
+              const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
+              const titleMatch = titleWords.length >= 2 &&
+                                titleWords.filter(word => lastAIText.includes(word)).length >= 2;
+
+              if (neighborhoodMatch || priceMatch || titleMatch) {
+                propertiesInResponse.push(property);
+              }
+            }
+
+            // Get the property at the requested position
+            if (propertiesInResponse.length > propertyPosition) {
+              propertyToSend = propertiesInResponse[propertyPosition];
+              console.log(`✅ Found property at position ${propertyPosition + 1}: ${propertyToSend['Title'] || propertyToSend['Título']}`);
+            } else {
+              console.log(`⚠️  Position ${propertyPosition + 1} not found in AI response (only ${propertiesInResponse.length} properties)`);
+              // Fallback: if only one property mentioned, use it
+              if (propertiesInResponse.length === 1) {
+                propertyToSend = propertiesInResponse[0];
+                console.log(`⚠️  Using the only property found: ${propertyToSend['Title'] || propertyToSend['Título']}`);
+              }
+            }
+          }
+          // If user wants multiple properties (or position is -1 for "all"), try to extract ALL properties mentioned in last AI response
+          else if (wantsMultipleProperties || propertyPosition === -1) {
             const propertiesFromAI = [];
 
             // Find all properties mentioned in the last AI response
