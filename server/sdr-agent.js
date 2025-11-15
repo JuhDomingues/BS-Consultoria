@@ -1311,18 +1311,45 @@ IMPORTANTE - MESMO VINDO DO SITE:
       }
 
       if (!propertyToSend && (isRequestingInfo || normalizedMessage.includes('quero ver') || normalizedMessage === 'sim' || normalizedMessage === 'sim quero' || propertyPosition !== null)) {
-        // Look at the last AI message to find which properties were mentioned
-        const lastAIMessages = context.history.filter(h => h.role === 'assistant').slice(-2);
+        // Look at the LAST 5 AI messages to find which properties were mentioned
+        // (Sometimes the last message is just "👍" or confirmation, so we need to look further back)
+        const lastAIMessages = context.history.filter(h => h.role === 'assistant').slice(-5);
 
         if (lastAIMessages.length > 0) {
-          const lastAIText = normalize(lastAIMessages[lastAIMessages.length - 1].content);
-          console.log(`Looking for property in last AI response: "${lastAIText.substring(0, 150)}..."`);
+          // Try to find a message that contains property information
+          // Look for messages with emojis like 🏠, price (R$), or long text (property lists are usually longer)
+          let messageWithProperties = null;
+          let propertiesText = '';
+
+          // Search from most recent to oldest
+          for (let i = lastAIMessages.length - 1; i >= 0; i--) {
+            const msg = lastAIMessages[i].content;
+            const hasPropertyIndicators = msg.includes('🏠') ||
+                                         msg.includes('R$') ||
+                                         msg.includes('quartos') ||
+                                         msg.includes('Quartos') ||
+                                         msg.length > 100; // Property lists are usually long
+
+            if (hasPropertyIndicators) {
+              messageWithProperties = msg;
+              propertiesText = normalize(msg);
+              console.log(`📋 Found message with properties (${i + 1}/${lastAIMessages.length}): "${msg.substring(0, 100)}..."`);
+              break;
+            }
+          }
+
+          // Fallback to last message if no property message found
+          if (!messageWithProperties) {
+            messageWithProperties = lastAIMessages[lastAIMessages.length - 1].content;
+            propertiesText = normalize(messageWithProperties);
+            console.log(`⚠️  No property indicators found, using last AI message: "${messageWithProperties.substring(0, 100)}..."`);
+          }
 
           // If user specified a position (first, second, etc.), extract that specific property
           if (propertyPosition !== null && propertyPosition !== -1) {
             console.log(`User requested property at position ${propertyPosition + 1}`);
 
-            // Find ALL properties mentioned in the last AI response
+            // Find ALL properties mentioned in the AI response with properties
             const propertiesInResponse = [];
             for (const property of activeProperties) {
               const title = normalize(property['Title'] || property['Título'] || property.title || '');
@@ -1330,16 +1357,17 @@ IMPORTANTE - MESMO VINDO DO SITE:
               const price = property['Price'] || property['Preço'] || property.price || '';
 
               // Check if this property was mentioned in the AI response
-              const neighborhoodMatch = neighborhood.length > 0 && lastAIText.includes(neighborhood);
-              const priceMatch = price && lastAIText.includes(price.toLowerCase().replace(/\s/g, ''));
+              const neighborhoodMatch = neighborhood.length > 0 && propertiesText.includes(neighborhood);
+              const priceMatch = price && propertiesText.includes(price.toLowerCase().replace(/\s/g, ''));
 
               // Match title words (at least 2 words from title)
               const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
               const titleMatch = titleWords.length >= 2 &&
-                                titleWords.filter(word => lastAIText.includes(word)).length >= 2;
+                                titleWords.filter(word => propertiesText.includes(word)).length >= 2;
 
               if (neighborhoodMatch || priceMatch || titleMatch) {
                 propertiesInResponse.push(property);
+                console.log(`  ✓ Found property in response: ${title}`);
               }
             }
 
@@ -1356,28 +1384,28 @@ IMPORTANTE - MESMO VINDO DO SITE:
               }
             }
           }
-          // If user wants multiple properties (or position is -1 for "all"), try to extract ALL properties mentioned in last AI response
+          // If user wants multiple properties (or position is -1 for "all"), try to extract ALL properties mentioned in AI response
           else if (wantsMultipleProperties || propertyPosition === -1) {
             const propertiesFromAI = [];
 
-            // Find all properties mentioned in the last AI response
+            // Find all properties mentioned in the AI response with properties
             for (const property of activeProperties) {
               const title = normalize(property['Title'] || property['Título'] || property.title || '');
               const neighborhood = normalize(property['neighborhood'] || property['Bairro'] || property.bairro || '');
               const price = property['Price'] || property['Preço'] || property.price || '';
 
               // Check if this property was mentioned in the AI response
-              const neighborhoodMatch = neighborhood.length > 0 && lastAIText.includes(neighborhood);
-              const priceMatch = price && lastAIText.includes(price.toLowerCase().replace(/\s/g, ''));
+              const neighborhoodMatch = neighborhood.length > 0 && propertiesText.includes(neighborhood);
+              const priceMatch = price && propertiesText.includes(price.toLowerCase().replace(/\s/g, ''));
 
               // Match title words (at least 2 words from title)
               const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
               const titleMatch = titleWords.length >= 2 &&
-                                titleWords.filter(word => lastAIText.includes(word)).length >= 2;
+                                titleWords.filter(word => propertiesText.includes(word)).length >= 2;
 
               if (neighborhoodMatch || priceMatch || titleMatch) {
                 propertiesFromAI.push(property);
-                console.log(`✅ Found property from last AI message: ${title}`);
+                console.log(`✅ Found property from AI message: ${title}`);
               }
             }
 
@@ -1396,17 +1424,17 @@ IMPORTANTE - MESMO VINDO DO SITE:
               const neighborhood = normalize(p['neighborhood'] || p['Bairro'] || p.bairro || '');
 
               // Match full neighborhood name (more precise)
-              if (neighborhood.length > 0 && lastAIText.includes(neighborhood)) {
-                console.log(`✅ Found property from last AI message (neighborhood match): ${title} - ${neighborhood}`);
+              if (neighborhood.length > 0 && propertiesText.includes(neighborhood)) {
+                console.log(`✅ Found property from AI message (neighborhood match): ${title} - ${neighborhood}`);
                 return true;
               }
 
               // Match title if it's distinctive enough (at least 2 words from title)
               const titleWords = title.split(/[\s-]+/).filter(word => word.length > 4);
               if (titleWords.length >= 2) {
-                const matchedWords = titleWords.filter(word => lastAIText.includes(word));
+                const matchedWords = titleWords.filter(word => propertiesText.includes(word));
                 if (matchedWords.length >= 2) {
-                  console.log(`✅ Found property from last AI message (title match): ${title}`);
+                  console.log(`✅ Found property from AI message (title match): ${title}`);
                   return true;
                 }
               }
