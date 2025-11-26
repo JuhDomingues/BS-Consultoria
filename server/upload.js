@@ -54,7 +54,8 @@ app.use((req, res, next) => {
   const allowedOrigins = [
     'http://localhost:8080',
     'https://bsconsultoriadeimoveis.com.br',
-    'https://www.bsconsultoriadeimoveis.com.br'
+    'https://www.bsconsultoriadeimoveis.com.br',
+    'https://bs-consultoria.vercel.app'
   ];
 
   const origin = req.headers.origin;
@@ -62,8 +63,8 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', origin);
   }
 
-  res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
 
   // Handle preflight
@@ -277,6 +278,10 @@ app.post('/api/generate-with-ai', async (req, res) => {
 const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
 const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
 const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
+const BASEROW_LEADS_TABLE_ID = process.env.BASEROW_LEADS_TABLE_ID;
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE;
 
 // Helper function to make Baserow requests
 async function baserowRequest(endpoint, options = {}) {
@@ -300,6 +305,67 @@ async function baserowRequest(endpoint, options = {}) {
   }
 
   return response.json();
+}
+
+function normalizePhoneNumber(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+
+  if (!digits) return null;
+
+  if (digits.startsWith('55') && digits.length >= 12 && digits.length <= 13) {
+    return digits;
+  }
+
+  if (digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  if (digits.length > 13 && digits.startsWith('55')) {
+    return digits.slice(0, 13);
+  }
+
+  return digits.length >= 12 ? digits : null;
+}
+
+function applyMessageTemplate(template, variables = {}) {
+  if (!template) return '';
+
+  const name = variables.name || variables.nome || '';
+  const firstName = variables.firstName || variables.primeiroNome || (name ? name.split(' ')[0] : '');
+
+  return template
+    .replace(/{{\s*(nome|name)\s*}}/gi, name || firstName || 'cliente')
+    .replace(/{{\s*(primeiroNome|firstName)\s*}}/gi, firstName || name || 'cliente');
+}
+
+async function sendWhatsAppText(phoneNumber, text) {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
+    throw new Error('Evolution API credentials not configured');
+  }
+
+  const payload = {
+    number: phoneNumber,
+    text,
+  };
+
+  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': EVOLUTION_API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Evolution API error: ${response.status} - ${responseText}`);
+  }
+
+  return responseText ? JSON.parse(responseText) : {};
 }
 
 // GET all properties
@@ -381,6 +447,283 @@ app.delete('/api/baserow/properties/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error(`Error deleting property ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== LEADS ENDPOINTS =====
+
+// GET all leads
+app.get('/api/baserow/leads', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET single lead by ID
+app.get('/api/baserow/leads/:id', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+    const { id } = req.params;
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${id}/?user_field_names=true`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error fetching lead ${req.params.id}:`, error);
+    if (error.message.includes('404')) {
+      res.status(404).json({ error: 'Lead not found' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// POST create new lead
+app.post('/api/baserow/leads', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+
+    // Format data before sending to Baserow
+    const formattedData = { ...req.body };
+
+    // Format DataCadastro to YYYY-MM-DD if present
+    if (formattedData.DataCadastro) {
+      try {
+        const date = new Date(formattedData.DataCadastro);
+        formattedData.DataCadastro = date.toISOString().split('T')[0];
+      } catch (e) {
+        // If parsing fails, use today's date
+        formattedData.DataCadastro = new Date().toISOString().split('T')[0];
+      }
+    } else {
+      // If not provided, use today's date
+      formattedData.DataCadastro = new Date().toISOString().split('T')[0];
+    }
+
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true`,
+      {
+        method: 'POST',
+        body: JSON.stringify(formattedData),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH update lead
+app.patch('/api/baserow/leads/:id', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+    const { id } = req.params;
+
+    // Format data before sending to Baserow
+    const formattedData = { ...req.body };
+
+    // Format DataCadastro to YYYY-MM-DD if present
+    if (formattedData.DataCadastro) {
+      try {
+        const date = new Date(formattedData.DataCadastro);
+        formattedData.DataCadastro = date.toISOString().split('T')[0];
+      } catch (e) {
+        // If parsing fails, keep original value
+        console.warn('Failed to parse DataCadastro:', formattedData.DataCadastro);
+      }
+    }
+
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${id}/?user_field_names=true`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(formattedData),
+      }
+    );
+    res.json(data);
+  } catch (error) {
+    console.error(`Error updating lead ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE lead
+app.delete('/api/baserow/leads/:id', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+    const { id } = req.params;
+    await fetch(`${BASEROW_API_URL}/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${id}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Token ${BASEROW_TOKEN}`,
+      },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`Error deleting lead ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH update lead by phone number (special endpoint for CRM edit)
+app.patch('/api/baserow/leads/phone/:phoneNumber', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+
+    const { phoneNumber } = req.params;
+    const { name, email, observations, quality, tags } = req.body;
+
+    console.log(`Updating lead by phone ${phoneNumber}:`, { name, email, observations, quality, tags });
+
+    // First, find the lead by phone number
+    const searchData = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`
+    );
+
+    const lead = searchData.results.find(l => l.Telefone === phoneNumber);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Prepare update data (only update fields that were provided and are valid)
+    const updateData = {};
+
+    // Only add fields that have actual values (not null, not empty string)
+    if (name !== undefined && name !== null) {
+      updateData.Nome = name;
+    }
+    if (email !== undefined && email !== null) {
+      updateData.Email = email;
+    }
+    if (observations !== undefined && observations !== null) {
+      updateData.Observacoes = observations;
+    }
+    if (quality !== undefined && quality !== null) {
+      updateData.Qualidade = quality;
+    }
+    if (tags !== undefined && tags !== null) {
+      // Convert array to comma-separated string for Baserow
+      const tagsString = Array.isArray(tags) ? tags.join(', ') : tags;
+      // Only add if not empty
+      if (tagsString && tagsString.trim() !== '') {
+        updateData.Tags = tagsString;
+      }
+    }
+
+    // Update the lead
+    const updatedLead = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${lead.id}/?user_field_names=true`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(updateData),
+      }
+    );
+
+    console.log(`Lead ${phoneNumber} updated successfully`);
+    res.json(updatedLead);
+  } catch (error) {
+    console.error(`Error updating lead by phone ${req.params.phoneNumber}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// WhatsApp bulk messaging endpoint
+app.post('/api/whatsapp/broadcast', async (req, res) => {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
+      return res.status(500).json({ error: 'Evolution API credentials not configured' });
+    }
+
+    const { message, recipients } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: 'At least one recipient is required' });
+    }
+
+    const uniqueRecipients = [];
+    const seenNumbers = new Set();
+
+    for (const recipient of recipients) {
+      const normalizedNumber = normalizePhoneNumber(recipient.phoneNumber || recipient.number);
+      if (!normalizedNumber || seenNumbers.has(normalizedNumber)) {
+        continue;
+      }
+
+      seenNumbers.add(normalizedNumber);
+      const name = recipient.name || recipient.nome || '';
+      const firstName = name ? name.trim().split(' ')[0] : '';
+
+      uniqueRecipients.push({
+        phoneNumber: normalizedNumber,
+        name,
+        firstName,
+      });
+    }
+
+    if (uniqueRecipients.length === 0) {
+      return res.status(400).json({ error: 'No valid phone numbers provided' });
+    }
+
+    const results = [];
+    for (const recipient of uniqueRecipients) {
+      const personalizedMessage = applyMessageTemplate(message, {
+        name: recipient.name,
+        firstName: recipient.firstName,
+      });
+
+      try {
+        await sendWhatsAppText(recipient.phoneNumber, personalizedMessage);
+        results.push({
+          phoneNumber: recipient.phoneNumber,
+          status: 'sent',
+        });
+      } catch (error) {
+        console.error(`Failed to send message to ${recipient.phoneNumber}:`, error.message);
+        results.push({
+          phoneNumber: recipient.phoneNumber,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    const sent = results.filter(r => r.status === 'sent').length;
+
+    res.json({
+      success: true,
+      total: uniqueRecipients.length,
+      sent,
+      failed: uniqueRecipients.length - sent,
+      results,
+    });
+  } catch (error) {
+    console.error('Error sending WhatsApp broadcast:', error);
     res.status(500).json({ error: error.message });
   }
 });

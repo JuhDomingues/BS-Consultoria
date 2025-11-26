@@ -22,8 +22,21 @@ console.log(`Loading environment from: ${envPath}`);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS Configuration - Allow both www and non-www domains
+const corsOptions = {
+  origin: [
+    'http://localhost:8080',
+    'https://bsconsultoriadeimoveis.com.br',
+    'https://www.bsconsultoriadeimoveis.com.br',
+    'https://bs-consultoria.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -283,6 +296,7 @@ app.post('/api/generate-with-ai', async (req, res) => {
 const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
 const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
 const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
+const BASEROW_LEADS_TABLE_ID = process.env.BASEROW_LEADS_TABLE_ID;
 
 // Helper function to make Baserow requests
 async function baserowRequest(endpoint, options = {}) {
@@ -391,6 +405,170 @@ app.delete('/api/baserow/properties/:id', async (req, res) => {
   }
 });
 
+// ==================== LEADS ENDPOINTS ====================
+
+// GET all leads from Baserow
+app.get('/api/baserow/leads', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+
+    const data = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`
+    );
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST create new lead in Baserow
+app.post('/api/baserow/leads', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+
+    const { name, phoneNumber, email, source, typebotData, notes } = req.body;
+
+    console.log('📝 Creating new lead:', { name, phoneNumber, source });
+
+    // Validate required fields
+    if (!name || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome e telefone são obrigatórios'
+      });
+    }
+
+    // Check if lead already exists with this phone number
+    const existingLeads = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`
+    );
+
+    const existingLead = existingLeads.results.find(l => l.Telefone === phoneNumber);
+
+    if (existingLead) {
+      return res.status(400).json({
+        success: false,
+        error: 'Já existe um lead com este número de telefone'
+      });
+    }
+
+    // Prepare lead data for Baserow
+    const leadData = {
+      Nome: name,
+      Telefone: phoneNumber,
+      Email: email || null,
+      Fonte: source || 'manual',
+      Score: 0, // Initial score
+      Qualidade: 'Frio', // Initial quality
+      TotalMensagens: 0,
+      DataCadastro: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+      TipoTransacao: typebotData?.tipoTransacao || null,
+      TipoImovel: typebotData?.tipoImovel || null,
+      BudgetCompra: typebotData?.budgetCompra || null,
+      BudgetLocacao: typebotData?.budgetLocacao || null,
+      Localizacao: typebotData?.localizacao || null,
+      Prazo: typebotData?.prazo || null,
+      Financiamento: typebotData?.financiamento || null,
+      Observacoes: notes || null,
+      Indicadores: JSON.stringify([]), // Empty indicators array
+    };
+
+    console.log('📦 Lead data to be sent to Baserow:', JSON.stringify(leadData, null, 2));
+
+    // Create lead in Baserow
+    const newLead = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true`,
+      'POST',
+      leadData
+    );
+
+    console.log('📥 Response from Baserow:', JSON.stringify(newLead, null, 2));
+    console.log('✅ Lead created successfully with ID:', newLead?.id);
+
+    res.json({
+      success: true,
+      lead: newLead,
+      message: 'Lead criado com sucesso'
+    });
+  } catch (error) {
+    console.error('❌ Error creating lead:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// PATCH update lead by phone number in Baserow
+app.patch('/api/baserow/leads/phone/:phoneNumber', async (req, res) => {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID) {
+      return res.status(500).json({ error: 'BASEROW_LEADS_TABLE_ID not configured' });
+    }
+
+    const { phoneNumber } = req.params;
+    const { name, email, observations, quality, tags } = req.body;
+
+    console.log(`Updating lead ${phoneNumber}:`, { name, email, observations, quality, tags });
+
+    // First, find the lead by phone number
+    const searchData = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`
+    );
+
+    const lead = searchData.results.find(l => l.Telefone === phoneNumber);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Prepare update data (only update fields that were provided and are valid)
+    const updateData = {};
+
+    // Only add fields that have actual values (not null, not empty string)
+    if (name !== undefined && name !== null) {
+      updateData.Nome = name;
+    }
+    if (email !== undefined && email !== null) {
+      updateData.Email = email;
+    }
+    if (observations !== undefined && observations !== null) {
+      updateData.Observacoes = observations;
+    }
+    if (quality !== undefined && quality !== null) {
+      updateData.Qualidade = quality;
+    }
+    if (tags !== undefined && tags !== null) {
+      // Convert array to comma-separated string for Baserow
+      const tagsString = Array.isArray(tags) ? tags.join(', ') : tags;
+      // Only add if not empty
+      if (tagsString && tagsString.trim() !== '') {
+        updateData.Tags = tagsString;
+      }
+    }
+
+    // Update the lead
+    const updatedLead = await baserowRequest(
+      `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${lead.id}/?user_field_names=true`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(updateData),
+      }
+    );
+
+    console.log(`Lead ${phoneNumber} updated successfully`);
+    res.json(updatedLead);
+  } catch (error) {
+    console.error(`Error updating lead ${req.params.phoneNumber}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Import other API routes if they exist
 const apiRoutes = [
   'health',
@@ -462,6 +640,9 @@ app.listen(PORT, '0.0.0.0', () => {
 ║   - POST   /api/baserow/properties                        ║
 ║   - PATCH  /api/baserow/properties/:id                    ║
 ║   - DELETE /api/baserow/properties/:id                    ║
+║   - GET    /api/baserow/leads                             ║
+║   - POST   /api/baserow/leads                             ║
+║   - PATCH  /api/baserow/leads/phone/:phoneNumber          ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
