@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { X, Upload, Image as ImageIcon, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApiUrl } from "@/utils/api";
 
 interface ImageUploadProps {
   images: string[];
@@ -69,8 +70,8 @@ export function ImageUpload({ images, onChange, propertyId }: ImageUploadProps) 
         formData.append('propertyId', propertyId || 'temp');
         formData.append('fileName', fileName);
 
-        // Upload to server - use production API URL if available
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        // Upload to server
+        const apiUrl = getApiUrl();
         const uploadUrl = `${apiUrl}/api/upload-image`;
 
         console.log(`Uploading to: ${uploadUrl}, propertyId: ${propertyId || 'temp'}`);

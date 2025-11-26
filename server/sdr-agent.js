@@ -45,6 +45,7 @@ const CALENDLY_EVENT_TYPE = process.env.CALENDLY_EVENT_TYPE;
 const BASEROW_API_URL = process.env.BASEROW_API_URL || 'https://api.baserow.io';
 const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
 const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
+const BASEROW_LEADS_TABLE_ID = process.env.BASEROW_LEADS_TABLE_ID;
 
 // Fallback in-memory storage (used if Redis is unavailable)
 const conversationContextFallback = new Map();
@@ -1042,6 +1043,240 @@ async function createCalendlyLink(propertyId, customerName, customerPhone) {
 }
 
 /**
+ * Save or update lead in Baserow CRM
+ */
+async function saveLeadToBaserow(leadData) {
+  try {
+    if (!BASEROW_LEADS_TABLE_ID || !BASEROW_TOKEN) {
+      console.warn('⚠️  Baserow leads table not configured - skipping Baserow sync');
+      return false;
+    }
+
+    // Map quality from English to Portuguese
+    const qualityMap = {
+      'hot': 'Quente',
+      'warm': 'Morno',
+      'cold': 'Frio'
+    };
+
+    // Prepare Baserow lead object
+    const baserowLead = {
+      Nome: leadData.name || 'Nome não informado',
+      Telefone: leadData.phoneNumber,
+      Email: leadData.email || '',
+      Score: leadData.score || 0,
+      Qualidade: qualityMap[leadData.quality] || 'Frio',
+      Fonte: leadData.source === 'typebot' ? 'typebot' : 'whatsapp',
+      TotalMensagens: leadData.totalMessages || 0,
+      ImovelInteresse: leadData.propertyId || null,
+      DataCadastro: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+      Indicadores: leadData.indicators ? leadData.indicators.join('\n') : '',
+      Observacoes: ''
+    };
+
+    // Add Typebot data if available
+    if (leadData.typebotData) {
+      baserowLead.TipoTransacao = leadData.typebotData.tipoTransacao || '';
+      baserowLead.TipoImovel = leadData.typebotData.tipoImovel || '';
+      baserowLead.BudgetCompra = leadData.typebotData.budgetCompra || '';
+      baserowLead.BudgetLocacao = leadData.typebotData.budgetLocacao || '';
+      baserowLead.Localizacao = leadData.typebotData.localizacao || '';
+      baserowLead.Prazo = leadData.typebotData.prazo || '';
+      baserowLead.Financiamento = leadData.typebotData.financiamento || '';
+    }
+
+    // Check if lead already exists in Baserow (by phone number)
+    const searchResponse = await fetch(
+      `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true&size=200`,
+      {
+        headers: {
+          'Authorization': `Token ${BASEROW_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!searchResponse.ok) {
+      throw new Error(`Baserow API error: ${searchResponse.status}`);
+    }
+
+    const searchData = await searchResponse.json();
+    const existingLead = searchData.results.find(lead => lead.Telefone === leadData.phoneNumber);
+
+    if (existingLead) {
+      // Update existing lead
+      console.log(`📝 Updating existing lead in Baserow: ${leadData.phoneNumber}`);
+      const updateResponse = await fetch(
+        `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/${existingLead.id}/?user_field_names=true`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Token ${BASEROW_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Score: baserowLead.Score,
+            Qualidade: baserowLead.Qualidade,
+            TotalMensagens: baserowLead.TotalMensagens,
+            ImovelInteresse: baserowLead.ImovelInteresse,
+            Indicadores: baserowLead.Indicadores,
+            // Update name and email if they were empty before
+            ...((!existingLead.Nome || existingLead.Nome === 'Nome não informado') && leadData.name ? { Nome: leadData.name } : {}),
+            ...((!existingLead.Email) && leadData.email ? { Email: leadData.email } : {}),
+          }),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error(`Failed to update lead: ${updateResponse.status}`);
+      }
+
+      console.log(`✅ Lead updated in Baserow: ${leadData.phoneNumber} - ${baserowLead.Qualidade} (${leadData.score} pts)`);
+      return true;
+    } else {
+      // Create new lead
+      console.log(`➕ Creating new lead in Baserow: ${leadData.phoneNumber}`);
+      const createResponse = await fetch(
+        `${BASEROW_API_URL}/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${BASEROW_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(baserowLead),
+        }
+      );
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        throw new Error(`Failed to create lead: ${createResponse.status} - ${errorText}`);
+      }
+
+      console.log(`✅ Lead created in Baserow: ${leadData.phoneNumber} - ${baserowLead.Qualidade} (${leadData.score} pts)`);
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Error saving lead to Baserow:', error);
+    return false;
+  }
+}
+
+/**
+ * Evaluate lead quality based on conversation context and behavior
+ * Scores: hot (80-100), warm (50-79), cold (0-49)
+ */
+async function evaluateLeadQuality(phoneNumber, context, customerInfo, typebotLeadInfo = null) {
+  try {
+    let score = 0;
+    let indicators = [];
+    let name = null;
+    let email = null;
+
+    // Extract name and email from context or Typebot
+    if (typebotLeadInfo) {
+      name = typebotLeadInfo.leadInfo?.name || null;
+      email = typebotLeadInfo.leadInfo?.email || null;
+    }
+
+    // 1. Engagement Score (0-30 points)
+    if (customerInfo.totalMessages >= 10) {
+      score += 30;
+      indicators.push('Alta interação (10+ mensagens)');
+    } else if (customerInfo.totalMessages >= 5) {
+      score += 20;
+      indicators.push('Boa interação (5-9 mensagens)');
+    } else if (customerInfo.totalMessages >= 2) {
+      score += 10;
+      indicators.push('Interação básica (2-4 mensagens)');
+    }
+
+    // 2. Property Interest (0-25 points)
+    if (context.propertyId) {
+      score += 25;
+      indicators.push(`Interesse em imóvel #${context.propertyId}`);
+    }
+
+    // 3. Qualification Completion (0-20 points)
+    if (context.qualificationCompleted) {
+      score += 20;
+      indicators.push('Qualificação completa');
+    } else if (context.askedAboutPreference) {
+      score += 10;
+      indicators.push('Qualificação parcial');
+    }
+
+    // 4. Data Quality (0-15 points)
+    if (name && email) {
+      score += 15;
+      indicators.push('Dados completos (nome + email + telefone)');
+    } else if (name) {
+      // Sempre temos telefone do WhatsApp, então nome + telefone = dados bons
+      score += 12;
+      indicators.push('Dados bons (nome + telefone)');
+    }
+
+    // 5. Source Quality (0-10 points)
+    if (typebotLeadInfo) {
+      score += 10;
+      indicators.push('Lead do Typebot (formulário preenchido)');
+    }
+
+    // 6. Recency (0-10 points)
+    const daysSinceLastContact = Math.floor((Date.now() - customerInfo.lastContact) / (1000 * 60 * 60 * 24));
+    if (daysSinceLastContact === 0) {
+      score += 10;
+      indicators.push('Contato hoje');
+    } else if (daysSinceLastContact <= 3) {
+      score += 5;
+      indicators.push('Contato recente (1-3 dias)');
+    }
+
+    // Determine quality tier
+    let quality = 'cold';
+    if (score >= 80) quality = 'hot';
+    else if (score >= 50) quality = 'warm';
+
+    // Store lead quality in Redis
+    const leadData = {
+      phoneNumber,
+      name,
+      email,
+      score,
+      quality,
+      indicators,
+      lastEvaluated: new Date().toISOString(),
+      totalMessages: customerInfo.totalMessages,
+      propertyId: context.propertyId,
+      source: customerInfo.source || 'direct',
+      typebotData: typebotLeadInfo ? {
+        tipoTransacao: typebotLeadInfo.leadInfo?.tipoTransacao,
+        tipoImovel: typebotLeadInfo.leadInfo?.tipoImovel,
+        budgetCompra: typebotLeadInfo.leadInfo?.budgetCompra,
+        budgetLocacao: typebotLeadInfo.leadInfo?.budgetLocacao,
+        localizacao: typebotLeadInfo.leadInfo?.localizacao,
+        prazo: typebotLeadInfo.leadInfo?.prazo,
+        financiamento: typebotLeadInfo.leadInfo?.financiamento
+      } : null
+    };
+
+    // Save to Redis with key: lead:{phoneNumber}
+    const { setLeadData } = await import('./redis-client.js');
+    await setLeadData(phoneNumber, leadData);
+
+    // Also save to Baserow for CRM visibility
+    await saveLeadToBaserow(leadData);
+
+    console.log(`📊 Lead quality evaluated: ${phoneNumber} - ${quality.toUpperCase()} (${score} points)`);
+
+    return { score, quality, indicators };
+  } catch (error) {
+    console.error('Error evaluating lead quality:', error);
+    return null;
+  }
+}
+
+/**
  * Process incoming WhatsApp message
  */
 async function processMessage(phoneNumber, message, propertyId = null) {
@@ -1092,7 +1327,10 @@ async function processMessage(phoneNumber, message, propertyId = null) {
     const saved = await setCustomerHistory(phoneNumber, persistentHistory);
     if (!saved) {
       // Save to fallback if Redis fails
+      console.warn(`⚠️  Redis failed - saving to fallback: ${phoneNumber}`);
       customerHistoryFallback.set(phoneNumber, persistentHistory);
+    } else {
+      console.log(`✅ Customer history saved to Redis: ${phoneNumber} (${persistentHistory.totalMessages} messages)`);
     }
 
     // Determine customer info for AI context
@@ -1213,7 +1451,10 @@ IMPORTANTE - MESMO VINDO DO SITE:
     const contextSaved = await setConversationContext(phoneNumber, context);
     if (!contextSaved) {
       // Save to fallback if Redis fails
+      console.warn(`⚠️  Redis failed - saving conversation to fallback: ${phoneNumber}`);
       conversationContextFallback.set(phoneNumber, context);
+    } else {
+      console.log(`✅ Conversation context saved to Redis: ${phoneNumber} (${context.history.length} messages in context)`);
     }
 
     // Mark Typebot lead as processed after first successful interaction
@@ -1221,6 +1462,9 @@ IMPORTANTE - MESMO VINDO DO SITE:
       await markTypebotLeadAsProcessed(phoneNumber);
       console.log(`✅ Marked Typebot lead as processed: ${phoneNumber}`);
     }
+
+    // Evaluate lead quality after each interaction
+    await evaluateLeadQuality(phoneNumber, context, customerInfo, typebotLeadInfo);
 
     // Check if customer is EXPLICITLY asking for property information OR if AI says it will send
     const isRequestingInfo = detectPropertyInfoRequest(message);

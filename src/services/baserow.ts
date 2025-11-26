@@ -31,17 +31,10 @@ interface Property {
   active: boolean;
 }
 
-// Backend API URL - All Baserow requests now go through our secure backend
-// Use production URL if available (from VITE_API_URL env var), fallback to localhost for development
-const getBackendUrl = () => {
-  // In browser, import.meta.env is available
-  if (typeof window !== 'undefined' && import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  return 'http://localhost:3001';
-};
+import { getApiUrl } from '@/utils/api';
 
-const BACKEND_API_URL = getBackendUrl();
+// Backend API URL - All Baserow requests now go through our secure backend
+const BACKEND_API_URL = getApiUrl();
 
 /**
  * Fetch all properties from Baserow (via secure backend)

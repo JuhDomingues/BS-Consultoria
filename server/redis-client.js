@@ -147,8 +147,8 @@ async function setConversationContext(phoneNumber, context) {
 
     const key = `conversation:${phoneNumber}`;
     await redisClient.set(key, JSON.stringify(context));
-    // Expire after 6 hours (21600 seconds)
-    await redisClient.expire(key, 21600);
+    // No expiration - conversation history is permanent (same as customer history)
+    // This allows viewing complete conversation history in admin panel
     return true;
   } catch (error) {
     console.error('Error setting conversation context in Redis:', error);
@@ -307,6 +307,86 @@ async function deleteScheduledReminder(eventUri) {
 }
 
 /**
+ * Set lead data in Redis (CRM)
+ */
+async function setLeadData(phoneNumber, leadData) {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot set lead data');
+      return false;
+    }
+
+    const key = `lead:${phoneNumber}`;
+    await redisClient.set(key, JSON.stringify(leadData));
+    // No expiration - lead data is permanent
+    return true;
+  } catch (error) {
+    console.error('Error setting lead data in Redis:', error);
+    return false;
+  }
+}
+
+/**
+ * Get lead data from Redis (CRM)
+ */
+async function getLeadData(phoneNumber) {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot get lead data');
+      return null;
+    }
+
+    const key = `lead:${phoneNumber}`;
+    const data = await redisClient.get(key);
+
+    if (!data) {
+      return null;
+    }
+
+    // Upstash REST API already returns parsed objects
+    return typeof data === 'string' ? JSON.parse(data) : data;
+  } catch (error) {
+    console.error('Error getting lead data from Redis:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all leads from Redis (CRM) - OPTIMIZED
+ */
+async function getAllLeads() {
+  try {
+    if (!isConnected) {
+      console.warn('Redis not connected, cannot get all leads');
+      return [];
+    }
+
+    const keys = await redisClient.keys('lead:*');
+
+    if (keys.length === 0) {
+      return [];
+    }
+
+    // Use mget to fetch all leads in a single request (MUCH faster!)
+    const values = await redisClient.mget(...keys);
+    const leads = [];
+
+    for (let i = 0; i < values.length; i++) {
+      if (values[i]) {
+        const parsed = typeof values[i] === 'string' ? JSON.parse(values[i]) : values[i];
+        leads.push(parsed);
+      }
+    }
+
+    // Sort by score (descending) - hottest leads first
+    return leads.sort((a, b) => b.score - a.score);
+  } catch (error) {
+    console.error('Error getting all leads from Redis:', error);
+    return [];
+  }
+}
+
+/**
  * Close Redis connection
  */
 async function closeRedis() {
@@ -329,6 +409,9 @@ export {
   deleteScheduledReminder,
   getAllCustomers,
   getRedisStats,
+  setLeadData,
+  getLeadData,
+  getAllLeads,
   closeRedis,
   isConnected
 };

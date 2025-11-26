@@ -1,4 +1,5 @@
 import { Property } from "@/utils/parsePropertyData";
+import { getApiUrl } from "@/utils/api";
 
 interface AIPropertyInput {
   images: File[];
@@ -182,9 +183,8 @@ IMPORTANTE:
 - A descrição DEVE mencionar a localização fornecida`;
 
     // Call OpenAI API through our server to avoid CORS issues and keep API key secure
-    // Use production URL if available
     console.log('Calling AI endpoint...');
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const apiUrl = getApiUrl();
     const response = await fetch(`${apiUrl}/api/generate-with-ai`, {
       method: 'POST',
       headers: {
@@ -244,8 +244,8 @@ IMPORTANTE:
       formData.append('fileName', fileName);
 
       console.log(`Uploading image ${i + 1}/${input.images.length}...`);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const uploadResponse = await fetch(`${apiUrl}/api/upload-image`, {
+      const uploadApiUrl = getApiUrl();
+      const uploadResponse = await fetch(`${uploadApiUrl}/api/upload-image`, {
         method: 'POST',
         body: formData,
       });

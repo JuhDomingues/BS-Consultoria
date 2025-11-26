@@ -1,0 +1,135 @@
+{
+  "name": "Leads",
+  "fields": [
+    {
+      "name": "Nome",
+      "type": "text",
+      "text_default": "",
+      "primary": true
+    },
+    {
+      "name": "Telefone",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "Email",
+      "type": "email"
+    },
+    {
+      "name": "Score",
+      "type": "number",
+      "number_decimal_places": 0,
+      "number_negative": false
+    },
+    {
+      "name": "Qualidade",
+      "type": "single_select",
+      "select_options": [
+        {
+          "value": "Quente",
+          "color": "red"
+        },
+        {
+          "value": "Morno",
+          "color": "yellow"
+        },
+        {
+          "value": "Frio",
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "name": "Fonte",
+      "type": "single_select",
+      "select_options": [
+        {
+          "value": "typebot",
+          "color": "light-blue"
+        },
+        {
+          "value": "manual",
+          "color": "light-green"
+        },
+        {
+          "value": "import",
+          "color": "light-orange"
+        },
+        {
+          "value": "whatsapp",
+          "color": "green"
+        }
+      ]
+    },
+    {
+      "name": "TotalMensagens",
+      "type": "number",
+      "number_decimal_places": 0,
+      "number_negative": false
+    },
+    {
+      "name": "ImovelInteresse",
+      "type": "number",
+      "number_decimal_places": 0,
+      "number_negative": false
+    },
+    {
+      "name": "DataCadastro",
+      "type": "date",
+      "date_format": "ISO",
+      "date_include_time": false,
+      "date_time_format": "24"
+    },
+    {
+      "name": "UltimaAtualizacao",
+      "type": "last_modified",
+      "date_format": "ISO",
+      "date_include_time": true,
+      "date_time_format": "24"
+    },
+    {
+      "name": "TipoTransacao",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "TipoImovel",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "BudgetCompra",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "BudgetLocacao",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "Localizacao",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "Prazo",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "Financiamento",
+      "type": "text",
+      "text_default": ""
+    },
+    {
+      "name": "Indicadores",
+      "type": "long_text"
+    },
+    {
+      "name": "Observacoes",
+      "type": "long_text"
+    }
+  ]
+}

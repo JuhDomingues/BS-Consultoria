@@ -1,0 +1,6 @@
+nome,telefone,email,transacao,tipoimovel,budgetcompra,budgetlocacao,localizacao,prazo,financiamento,observacoes
+João Silva,11999999999,joao@email.com,Compra,Apartamento,R$ 500.000,,Centro,Curto prazo (1-3 meses),Sim,Cliente interessado em imóvel com 2 quartos
+Maria Santos,11988888888,maria@email.com,Locação,Casa,,R$ 2.500/mês,Zona Sul,Urgente (até 1 mês),Não,Precisa de casa com quintal
+Pedro Oliveira,11977777777,,Ambos,Comercial,R$ 1.000.000,R$ 5.000/mês,Centro,Médio prazo (3-6 meses),Talvez,Procura imóvel para negócio
+Ana Costa,11966666666,ana@email.com,Compra,Terreno,R$ 300.000,,Zona Norte,Longo prazo (6+ meses),Não,Quer construir casa própria
+Carlos Mendes,11955555555,carlos@email.com,Locação,Apartamento,,R$ 1.800/mês,Centro,Curto prazo (1-3 meses),Não,Apartamento de 1 quarto

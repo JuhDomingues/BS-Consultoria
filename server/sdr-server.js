@@ -197,16 +197,21 @@ app.post('/api/initiate-conversation', async (req, res) => {
  */
 app.get('/api/conversations', async (req, res) => {
   try {
-    const { getAllCustomers, getCustomerHistory, getConversationContext } = await import('./redis-client.js');
+    const { getAllCustomers, getCustomerHistory, getConversationContext, isConnected } = await import('./redis-client.js');
+
+    console.log('📞 /api/conversations - Redis connected:', isConnected);
 
     // Get all customer phone numbers from Redis
     const phoneNumbers = await getAllCustomers();
+    console.log(`📞 Found ${phoneNumbers.length} customers in Redis:`, phoneNumbers);
 
     const conversations = [];
 
     for (const phoneNumber of phoneNumbers) {
       const history = await getCustomerHistory(phoneNumber);
       const context = await getConversationContext(phoneNumber);
+
+      console.log(`  📱 ${phoneNumber}: history=${!!history}, context=${!!context}`);
 
       if (history) {
         conversations.push({
@@ -225,9 +230,10 @@ app.get('/api/conversations', async (req, res) => {
     // Sort by last contact (most recent first)
     conversations.sort((a, b) => new Date(b.lastContact).getTime() - new Date(a.lastContact).getTime());
 
+    console.log(`📞 Returning ${conversations.length} conversations`);
     res.json({ success: true, conversations, total: conversations.length });
   } catch (error) {
-    console.error('Error fetching conversations:', error);
+    console.error('❌ Error fetching conversations:', error);
     res.status(500).json({ error: 'Failed to fetch conversations', message: error.message });
   }
 });
@@ -716,6 +722,139 @@ function cleanPhoneNumber(phone) {
 
   return cleaned;
 }
+
+/**
+ * API endpoint to get all CRM leads with full data
+ */
+app.get('/api/crm/leads', async (req, res) => {
+  try {
+    const { getAllLeads } = await import('./redis-client.js');
+
+    const leads = await getAllLeads();
+
+    // Organize by quality
+    const hot = leads.filter(l => l.quality === 'hot');
+    const warm = leads.filter(l => l.quality === 'warm');
+    const cold = leads.filter(l => l.quality === 'cold');
+
+    res.json({
+      success: true,
+      total: leads.length,
+      summary: {
+        hot: hot.length,
+        warm: warm.length,
+        cold: cold.length
+      },
+      leads: leads
+    });
+  } catch (error) {
+    console.error('Error fetching CRM leads:', error);
+    res.status(500).json({ error: 'Failed to fetch CRM leads', message: error.message });
+  }
+});
+
+/**
+ * API endpoint to get specific lead data
+ */
+app.get('/api/crm/leads/:phoneNumber', async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const { getLeadData, getCustomerHistory, getConversationContext } = await import('./redis-client.js');
+
+    const leadData = await getLeadData(phoneNumber);
+    const history = await getCustomerHistory(phoneNumber);
+    const context = await getConversationContext(phoneNumber);
+
+    if (!leadData) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    res.json({
+      success: true,
+      lead: {
+        ...leadData,
+        customerHistory: history,
+        conversationContext: context
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching lead:', error);
+    res.status(500).json({ error: 'Failed to fetch lead', message: error.message });
+  }
+});
+
+/**
+ * API endpoint to create a new lead manually
+ */
+app.post('/api/crm/leads', async (req, res) => {
+  try {
+    const { phoneNumber, name, email, source, notes, typebotData } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+
+    const { setLeadData, setCustomerHistory } = await import('./redis-client.js');
+
+    // Create initial lead data with default scoring
+    const leadData = {
+      phoneNumber: cleanPhoneNumber(phoneNumber),
+      name: name || null,
+      email: email || null,
+      score: 0,
+      quality: 'cold',
+      indicators: ['Lead criado manualmente'],
+      lastEvaluated: new Date().toISOString(),
+      totalMessages: 0,
+      source: source || 'manual',
+      notes: notes || null,
+      typebotData: typebotData || null,
+      createdManually: true,
+      createdAt: new Date().toISOString()
+    };
+
+    // Calculate initial score
+    if (name && email) {
+      leadData.score += 15;
+      leadData.indicators.push('Dados completos (nome + email)');
+    } else if (name) {
+      leadData.score += 10;
+      leadData.indicators.push('Nome fornecido');
+    }
+
+    if (source === 'typebot') {
+      leadData.score += 10;
+      leadData.indicators.push('Lead do Typebot');
+    }
+
+    // Determine quality tier
+    if (leadData.score >= 80) leadData.quality = 'hot';
+    else if (leadData.score >= 50) leadData.quality = 'warm';
+    else leadData.quality = 'cold';
+
+    // Save lead data
+    await setLeadData(leadData.phoneNumber, leadData);
+
+    // Create customer history
+    await setCustomerHistory(leadData.phoneNumber, {
+      firstContact: new Date(),
+      lastContact: new Date(),
+      totalMessages: 0,
+      source: source || 'manual'
+    });
+
+    console.log(`Manual lead created: ${leadData.phoneNumber} - ${name || 'No name'}`);
+
+    res.json({
+      success: true,
+      lead: leadData,
+      message: 'Lead criado com sucesso'
+    });
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    res.status(500).json({ error: 'Failed to create lead', message: error.message });
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
