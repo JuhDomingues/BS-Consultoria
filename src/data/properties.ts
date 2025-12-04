@@ -5,6 +5,7 @@ import { fetchProperties } from '@/services/baserow';
 let cachedProperties: Property[] = [];
 let lastFetchTime: number = 0;
 const CACHE_DURATION = 30 * 1000; // 30 seconds cache (reduced for testing)
+let isFetching = false; // Prevent concurrent fetches
 
 /**
  * Clear the cache manually
@@ -27,33 +28,58 @@ export async function getAllProperties(): Promise<Property[]> {
     return cachedProperties;
   }
 
+  // If already fetching, wait a bit and return cached data
+  if (isFetching) {
+    console.log('Fetch already in progress, returning cached data');
+    return cachedProperties.length > 0 ? cachedProperties : [];
+  }
+
   try {
+    isFetching = true;
     console.log('Fetching fresh properties from Baserow...');
+
     // Fetch fresh data from Baserow
     const properties = await fetchProperties();
-    console.log('Fetched properties:', properties.length, properties);
 
-    // Transform to match Property type
-    cachedProperties = properties.map((prop: any) => ({
-      id: prop.id,
-      title: prop.title,
-      location: prop.location,
-      price: prop.price,
-      images: prop.images,
-      bedrooms: prop.bedrooms,
-      bathrooms: prop.bathrooms,
-      area: prop.area,
-      type: prop.type,
-      category: prop.category,
-      isExclusive: prop.isExclusive,
-      isFeatured: prop.isFeatured,
-      active: prop.active,
-      description: prop.description,
-      address: prop.address,
-      city: prop.city,
-      neighborhood: prop.neighborhood || prop.location.split(',')[0]?.trim(),
-      parkingSpaces: prop.parkingSpaces,
-    }));
+    if (!properties || properties.length === 0) {
+      console.warn('No properties returned from Baserow');
+      // Return cached data if available, even if expired
+      if (cachedProperties.length > 0) {
+        console.log('Using expired cache due to empty response');
+        return cachedProperties;
+      }
+      throw new Error('No properties available');
+    }
+
+    console.log('Fetched properties:', properties.length);
+
+    // Transform to match Property type and validate
+    cachedProperties = properties
+      .map((prop: any) => ({
+        id: prop.id,
+        title: prop.title,
+        location: prop.location,
+        price: prop.price,
+        images: Array.isArray(prop.images) ? prop.images : [],
+        bedrooms: prop.bedrooms,
+        bathrooms: prop.bathrooms,
+        area: prop.area,
+        type: prop.type,
+        category: prop.category,
+        isExclusive: prop.isExclusive,
+        isFeatured: prop.isFeatured,
+        active: prop.active,
+        description: prop.description,
+        address: prop.address,
+        city: prop.city,
+        neighborhood: prop.neighborhood || prop.location?.split(',')[0]?.trim() || '',
+        parkingSpaces: prop.parkingSpaces,
+      }))
+      .filter((prop: Property) => prop.id && prop.title); // Filter out invalid properties
+
+    if (cachedProperties.length === 0) {
+      throw new Error('All properties were filtered out due to validation');
+    }
 
     lastFetchTime = now;
     console.log('Cached properties updated:', cachedProperties.length);
@@ -61,7 +87,14 @@ export async function getAllProperties(): Promise<Property[]> {
   } catch (error) {
     console.error('Error loading properties from Baserow:', error);
     // Return cached data if available, even if expired
-    return cachedProperties;
+    if (cachedProperties.length > 0) {
+      console.log('Using expired cache due to error');
+      return cachedProperties;
+    }
+    // Re-throw if no cache available
+    throw error;
+  } finally {
+    isFetching = false;
   }
 }
 

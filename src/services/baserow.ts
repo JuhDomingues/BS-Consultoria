@@ -75,6 +75,32 @@ export async function fetchProperties(): Promise<Property[]> {
 }
 
 /**
+ * Validate if a URL is a valid image URL
+ */
+function isValidImageUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.length === 0) return false;
+
+  // Check if it's a valid URL or relative path
+  try {
+    // Check if it starts with http/https or is a relative path
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
+      // Additional check for common image extensions
+      const hasImageExtension = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(trimmedUrl);
+      const hasUploadPath = trimmedUrl.includes('/uploads/') || trimmedUrl.includes('/imoveis/');
+
+      return hasImageExtension || hasUploadPath;
+    }
+  } catch (e) {
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * Transform Baserow row to Property object
  */
 function transformBaserowToProperty(item: BaserowProperty): Property {
@@ -85,7 +111,12 @@ function transformBaserowToProperty(item: BaserowProperty): Property {
     images = imagesField
       .split(/[\n,]+/)
       .map((img: string) => img.trim())
-      .filter((img: string) => img.length > 0);
+      .filter((img: string) => img.length > 0 && isValidImageUrl(img));
+  }
+
+  // Log warning if no valid images found
+  if (images.length === 0 && imagesField) {
+    console.warn(`Property ${item.id} has images field but no valid image URLs:`, imagesField);
   }
 
   // Extract value from select field objects (Type and Category can be objects with {id, value, color})

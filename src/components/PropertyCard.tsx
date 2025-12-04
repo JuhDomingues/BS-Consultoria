@@ -22,7 +22,24 @@ const PropertyCard = ({
   features,
 }: PropertyCardProps) => {
   const navigate = useNavigate();
-  const primaryImage = images && images.length > 0 ? images[0] : '/property-1.jpg';
+
+  // Better image validation and fallback
+  const getPrimaryImage = () => {
+    if (!images || images.length === 0) {
+      return '/property-1.jpg';
+    }
+
+    // Filter out empty or invalid URLs
+    const validImages = images.filter(img => img && img.trim() !== '');
+
+    if (validImages.length === 0) {
+      return '/property-1.jpg';
+    }
+
+    return validImages[0];
+  };
+
+  const primaryImage = getPrimaryImage();
 
   const handleCardClick = () => {
     navigate(`/imovel/${id}`);
@@ -35,15 +52,20 @@ const PropertyCard = ({
   return (
     <div className="property-card group w-[320px] flex-shrink-0 cursor-pointer" onClick={handleCardClick}>
       {/* Image Container - Square Format */}
-      <div className="relative aspect-square overflow-hidden rounded-t-lg">
+      <div className="relative aspect-square overflow-hidden rounded-t-lg bg-muted">
         <img
           src={primaryImage}
           alt={title}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = '/property-1.jpg';
+            // Only set fallback once to prevent infinite loop
+            if (target.src !== window.location.origin + '/property-1.jpg') {
+              console.warn(`Failed to load image for property ${id}: ${primaryImage}`);
+              target.src = '/property-1.jpg';
+            }
           }}
+          loading="lazy"
         />
         <div className="absolute inset-0 overlay-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         

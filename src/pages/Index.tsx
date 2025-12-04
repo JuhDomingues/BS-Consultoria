@@ -19,12 +19,15 @@ const Index = () => {
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
   const [sobrados, setSobrados] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Load properties from Baserow on mount
   useEffect(() => {
     async function loadProperties() {
       try {
         setLoading(true);
+        setError(null);
 
         const [all, exclusive, featured, houses] = await Promise.all([
           getAllProperties(),
@@ -33,19 +36,34 @@ const Index = () => {
           getSobrados(),
         ]);
 
+        // Validate that we got some data
+        if (!all || all.length === 0) {
+          throw new Error('Nenhum imóvel foi carregado. Verifique a conexão com o servidor.');
+        }
+
         setAllProperties(all);
         setExclusiveProperties(exclusive);
         setFeaturedProperties(featured);
         setSobrados(houses);
+        setError(null);
       } catch (error) {
         console.error('Error loading properties:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar imóveis. Por favor, tente novamente.';
+        setError(errorMessage);
+
+        // Auto-retry once after 2 seconds
+        if (retryCount === 0) {
+          setTimeout(() => {
+            setRetryCount(1);
+          }, 2000);
+        }
       } finally {
         setLoading(false);
       }
     }
 
     loadProperties();
-  }, []);
+  }, [retryCount]);
   
   // Property filtering
   const {
@@ -71,6 +89,30 @@ const Index = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Carregando imóveis...</p>
+          {retryCount > 0 && <p className="text-sm text-muted-foreground mt-2">Tentando reconectar...</p>}
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if loading failed
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-destructive text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold mb-2">Erro ao Carregar Imóveis</h2>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <button
+            onClick={() => {
+              setRetryCount(0);
+              setError(null);
+              window.location.reload();
+            }}
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Tentar Novamente
+          </button>
         </div>
       </div>
     );
