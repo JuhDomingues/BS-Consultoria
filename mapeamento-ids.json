@@ -1,0 +1,121 @@
+{
+  "mappings": [
+    {
+      "newId": 97,
+      "oldId": "",
+      "status": "pending",
+      "notes": "Preencha com o ID antigo da pasta correspondente"
+    },
+    {
+      "newId": 104,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 109,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 110,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 111,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 112,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 125,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 298,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 331,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 364,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 397,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 398,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 430,
+      "oldId": "",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "newId": 463,
+      "oldId": "463",
+      "status": "ok",
+      "notes": "Pasta já existe com ID correto"
+    },
+    {
+      "newId": 496,
+      "oldId": "496",
+      "status": "ok",
+      "notes": "Pasta já existe com ID correto"
+    }
+  ],
+  "availableOldIds": [
+    "1668579",
+    "2266571",
+    "2536096",
+    "3040948",
+    "3041930",
+    "3041988",
+    "3092042",
+    "3105758",
+    "3106245",
+    "3119119",
+    "3129547",
+    "3129575",
+    "3144281",
+    "3170378",
+    "3232364",
+    "3340958",
+    "3378275",
+    "3461707",
+    "3461770",
+    "3500447",
+    "3500462",
+    "3574133",
+    "3629341",
+    "3921473",
+    "3921506"
+  ]
+}
