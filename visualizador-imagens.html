@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Imagens - Mapeamento BS Consultoria</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .instructions {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .instructions h2 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .imoveis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .imovel-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .imovel-header {
+            background: #2196F3;
+            color: white;
+            padding: 15px;
+        }
+
+        .imovel-header h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .imovel-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .imovel-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+
+        .imovel-info {
+            padding: 15px;
+        }
+
+        .imovel-info p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .imovel-info strong {
+            color: #333;
+        }
+
+        .error {
+            color: #f44336;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .mapping-input {
+            background: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .mapping-input input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .mapping-input input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .pastas-antigas {
+            background: #fff3cd;
+        }
+
+        .imoveis-novos {
+            background: #d4edda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Visualizador de Imagens - Mapeamento de IDs</h1>
+
+        <div class="instructions">
+            <h2>📋 Como usar:</h2>
+            <ul>
+                <li><strong>1.</strong> Role a página e veja as imagens das <strong>pastas antigas</strong></li>
+                <li><strong>2.</strong> Compare com os <strong>imóveis novos</strong> (IDs do Baserow)</li>
+                <li><strong>3.</strong> Quando identificar uma correspondência, anote no campo abaixo da imagem</li>
+                <li><strong>4.</strong> Copie os mapeamentos e use no script <code>copiar-imagens-ids.sh</code></li>
+            </ul>
+        </div>
+
+        <!-- PASTAS ANTIGAS -->
+        <div class="section">
+            <div class="section-title pastas-antigas">📁 Pastas Antigas (IDs Grandes)</div>
+            <div class="imoveis-grid" id="pastasAntigas"></div>
+        </div>
+
+        <!-- IMÓVEIS NOVOS -->
+        <div class="section">
+            <div class="section-title imoveis-novos">🆕 Imóveis Novos (IDs do Baserow)</div>
+            <div class="imoveis-grid" id="imoveisNovos"></div>
+        </div>
+    </div>
+
+    <script>
+        // Pastas antigas com IDs grandes
+        const pastasAntigas = [
+            '1668579', '2266571', '2536096', '3040948', '3041930', '3041988',
+            '3092042', '3105758', '3106245', '3119119', '3129547', '3129575',
+            '3144281', '3170378', '3232364', '3340958', '3378275', '3461707',
+            '3461770', '3500447', '3500462', '3574133', '3629341', '3921473', '3921506'
+        ];
+
+        // Imóveis novos do Baserow (IDs para mapear)
+        const imoveisNovos = [
+            { id: 97, titulo: 'Sobrado - Parque Scaffid II', preco: 'R$ 420.000', info: '12 imagens' },
+            { id: 104, titulo: 'Sobrado - Parque Scaffid II', preco: 'R$ 500.000', info: '18 imagens' },
+            { id: 109, titulo: 'Sobrado - Parque Scaffid II', preco: 'R$ 580.000', info: '17 imagens' },
+            { id: 110, titulo: 'Sobrado - Parque Scaffid II', preco: 'R$ 600.000', info: '17 imagens' },
+            { id: 112, titulo: 'Sobrado - Parque Scaffid II', preco: 'R$ 680.000', info: '21 imagens' },
+            { id: 125, titulo: 'Apartamento com Varanda Grill', preco: 'R$ 228.000', info: '5 imagens' },
+            { id: 298, titulo: 'Sobrado com móveis planejados', preco: 'R$ 480.000', info: '14 imagens' },
+            { id: 331, titulo: 'Casa térrea assobradada', preco: 'R$ 500.000', info: '16 imagens' },
+            { id: 364, titulo: 'Sobrado com 3 dormitórios', preco: 'R$ 630.000', info: '23 imagens' },
+            { id: 397, titulo: 'Sobrado no Scaffidi', preco: 'R$ 500.000', info: '31 imagens' },
+            { id: 398, titulo: 'Sobrado com 2 suítes', preco: 'R$ 525.000', info: '20 imagens' },
+            { id: 430, titulo: 'Sobrado com piscina', preco: 'R$ 850.000', info: '20 imagens' }
+        ];
+
+        const baseUrl = 'https://bsconsultoriadeimoveis.com.br/imoveis';
+
+        // Renderizar pastas antigas
+        const pastasContainer = document.getElementById('pastasAntigas');
+        pastasAntigas.forEach(id => {
+            const card = document.createElement('div');
+            card.className = 'imovel-card';
+            card.innerHTML = `
+                <div class="imovel-header">
+                    <h3>📁 Pasta: ${id}</h3>
+                    <p>ID Antigo (Outubro 2024)</p>
+                </div>
+                <img
+                    class="imovel-image"
+                    src="${baseUrl}/${id}/image_1.png"
+                    onerror="this.onerror=null; this.src='${baseUrl}/${id}/image_1.jpg'; this.onerror=function(){this.parentElement.querySelector('.error').style.display='block'; this.style.display='none';}"
+                    alt="Imagem do imóvel ${id}"
+                />
+                <div class="error" style="display:none;">❌ Imagem não encontrada</div>
+                <div class="imovel-info">
+                    <p><strong>URL:</strong> <a href="${baseUrl}/${id}/image_1.png" target="_blank">Ver todas as imagens →</a></p>
+                    <div class="mapping-input">
+                        <label><strong>Corresponde ao ID Novo:</strong></label>
+                        <input type="text" placeholder="Digite o ID novo (ex: 97, 104, etc.)" id="map_${id}">
+                    </div>
+                </div>
+            `;
+            pastasContainer.appendChild(card);
+        });
+
+        // Renderizar imóveis novos (para referência)
+        const imoveisContainer = document.getElementById('imoveisNovos');
+        imoveisNovos.forEach(imovel => {
+            const card = document.createElement('div');
+            card.className = 'imovel-card';
+            card.innerHTML = `
+                <div class="imovel-header">
+                    <h3>🆔 ID Baserow: ${imovel.id}</h3>
+                    <p>${imovel.titulo}</p>
+                </div>
+                <div class="imovel-info" style="padding: 30px; text-align: center; background: #f9f9f9;">
+                    <p style="font-size: 24px; margin: 20px 0; color: #4CAF50;"><strong>${imovel.preco}</strong></p>
+                    <p style="color: #666;">${imovel.info}</p>
+                    <p style="margin-top: 20px; color: #999; font-size: 12px;">
+                        ⚠️ Imagens ainda não disponíveis neste ID<br>
+                        Encontre a pasta antiga correspondente acima
+                    </p>
+                </div>
+            `;
+            imoveisContainer.appendChild(card);
+        });
+    </script>
+</body>
+</html>
