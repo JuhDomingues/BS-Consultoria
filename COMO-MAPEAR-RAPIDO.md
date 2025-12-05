@@ -1,13 +1,18 @@
-# 🚀 Como Mapear as Imagens - Guia Rápido
+# 🚀 Como Copiar Imagens para IDs Novos - Guia Rápido
 
-## 📊 Status Atual
+## 📊 Situação Real (Descoberta)
 
-✅ **3 imóveis já corretos:** 111, 463, 496
-⚠️ **12 imóveis para mapear:** 97, 104, 109, 110, 112, 125, 298, 331, 364, 397, 398, 430
+**✅ Sistema de upload funcionando:** Imóveis 463 e 496 (Nov 27-28) têm imagens corretas
+**⚠️ Problema:** 12 imóveis antigos (Outubro) foram criados antes do sistema de movimentação estar pronto
+
+### Status Atual
+
+✅ **3 imóveis com imagens funcionando:** 111 (usa pasta 3500462), 463, 496
+⚠️ **12 imóveis antigos para copiar:** 97, 104, 109, 110, 112, 125, 298, 331, 364, 397, 398, 430
 
 ## 🎯 Objetivo
 
-Descobrir qual ID novo corresponde a qual pasta antiga, para que as imagens apareçam.
+Copiar as imagens das pastas antigas (IDs grandes) para pastas com IDs novos do Baserow.
 
 ## 📋 Processo (3 passos simples)
 
@@ -72,7 +77,7 @@ https://bsconsultoriadeimoveis.com.br/imoveis/3921506/image_1.png
 - No Baserow, o ID 430 é "Sobrado com piscina - R$ 850.000"
 - **Mapeamento:** 430 → 1668579
 
-### PASSO 3: Preencher e executar o script
+### PASSO 3: Preencher e executar o script de cópia
 
 **Na VPS:**
 
@@ -83,35 +88,33 @@ cd /var/www/BS-Consultoria
 git pull origin main
 
 # Editar o script com seus mapeamentos
-nano atualizar-imagens-baserow.js
+nano copiar-imagens-ids.sh
 ```
 
 **No arquivo, preencha:**
 
-```javascript
-const ID_MAPPING = {
-  97: '1668579',   // ← Coloque o ID antigo que você identificou
-  104: '2266571',  // ← Coloque o ID antigo que você identificou
-  109: '',         // ← E assim por diante...
-  // ...
-};
+```bash
+declare -a MAPPINGS=(
+    "97:1668579"     # ← Coloque o ID antigo que você identificou
+    "104:2266571"    # ← Coloque o ID antigo que você identificou
+    "109:XXXXX"      # ← E assim por diante...
+    # ...
+)
 ```
 
 **Depois de preencher:**
 
 ```bash
-# Executar o script
-node atualizar-imagens-baserow.js
-
-# OU
-./atualizar-imagens-baserow.js
+# Executar o script como root
+sudo bash copiar-imagens-ids.sh
 ```
 
 O script irá:
-1. ✅ Buscar cada imóvel no Baserow
-2. ✅ Substituir `/imoveis/{id_novo}/` por `/imoveis/{id_antigo}/`
-3. ✅ Atualizar automaticamente
-4. ✅ Mostrar relatório de sucesso/erros
+1. ✅ Verificar se as pastas antigas existem
+2. ✅ Criar pastas novas com IDs do Baserow
+3. ✅ Copiar todas as imagens
+4. ✅ Ajustar permissões automaticamente
+5. ✅ Mostrar relatório de sucesso/erros
 
 ### PASSO 4: Testar
 
