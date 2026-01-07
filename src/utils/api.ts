@@ -1,16 +1,12 @@
 /**
  * Get the API base URL
  * In production: uses relative URL (same origin) to avoid CORS issues with www/non-www
- * In development: uses VITE_API_URL or localhost:3001
+ * In development: uses Vite proxy (empty string) to proxy to localhost:3000
  */
 export function getApiUrl(): string {
-  if (import.meta.env.DEV) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  }
-
-  // In production, use relative URL (empty string)
-  // This makes all API calls go to the same origin as the page
-  // Works with both www.domain.com and domain.com
+  // In both development and production, use relative URL (empty string)
+  // In development: Vite proxy will forward /api requests to localhost:3000
+  // In production: requests go to the same origin as the page
   return '';
 }
 

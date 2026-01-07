@@ -65,7 +65,7 @@ export async function fetchProperties(): Promise<Property[]> {
     // Filter only active properties
     const activeProperties = transformed.filter((item) => item.active === true);
 
-    console.log('Active properties:', activeProperties.length, activeProperties);
+    console.log('Active properties:', activeProperties.length);
 
     return activeProperties;
   } catch (error) {
@@ -87,11 +87,12 @@ function isValidImageUrl(url: string): boolean {
   try {
     // Check if it starts with http/https or is a relative path
     if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
-      // Additional check for common image extensions
+      // Additional check for common image extensions or image paths
       const hasImageExtension = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(trimmedUrl);
       const hasUploadPath = trimmedUrl.includes('/uploads/') || trimmedUrl.includes('/imoveis/');
+      const isProductionImage = trimmedUrl.includes('bsconsultoriadeimoveis.com.br') && trimmedUrl.includes('/imoveis/');
 
-      return hasImageExtension || hasUploadPath;
+      return hasImageExtension || hasUploadPath || isProductionImage;
     }
   } catch (e) {
     return false;
@@ -110,7 +111,14 @@ function transformBaserowToProperty(item: BaserowProperty): Property {
   if (imagesField) {
     images = imagesField
       .split(/[\n,]+/)
-      .map((img: string) => img.trim())
+      .map((img: string) => {
+        const trimmed = img.trim();
+        // In development, convert relative URLs to absolute URLs pointing to production
+        if (import.meta.env.DEV && trimmed.startsWith('/')) {
+          return `https://bsconsultoriadeimoveis.com.br${trimmed}`;
+        }
+        return trimmed;
+      })
       .filter((img: string) => img.length > 0 && isValidImageUrl(img));
   }
 
