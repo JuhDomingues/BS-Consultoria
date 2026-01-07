@@ -2,7 +2,7 @@
 
 ## 🎯 Problema Identificado
 
-O Nginx estava retornando HTML ao invés de fazer proxy das requisições `/api/` para o backend na porta 3000, causando o erro:
+O Nginx estava retornando HTML ao invés de fazer proxy das requisições `/api/` para o backend na porta 3003, causando o erro:
 
 ```
 SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
@@ -11,7 +11,7 @@ SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
 ## ✅ Solução
 
 A configuração foi reorganizada para garantir que:
-1. Rotas `/api/baserow/` sejam proxy para `http://127.0.0.1:3000`
+1. Rotas `/api/baserow/` sejam proxy para `http://127.0.0.1:3003`
 2. Rotas `/api/upload` e `/api/move-images` sejam proxy para `http://127.0.0.1:3001`
 3. Rotas `/api/sdr/` sejam proxy para `http://127.0.0.1:3002`
 4. Imagens `/imoveis/` sejam servidas do diretório correto
@@ -134,7 +134,7 @@ pm2 logs api-backend --lines 50
 pm2 status
 
 # Testar backend diretamente
-curl http://127.0.0.1:3000/api/baserow/properties
+curl http://127.0.0.1:3003/api/baserow/properties
 ```
 
 ### Se a configuração não for aplicada:
@@ -170,7 +170,7 @@ sudo chmod -R 755 /var/www/bs-consultoria-net-style-main/public/imoveis/
 
 1. **Location blocks reordenados**: Rotas mais específicas vêm primeiro
 2. **Stop + Start ao invés de reload**: Garante que cache seja limpo
-3. **Proxy pass corrigido**: `/api/baserow/` → `http://127.0.0.1:3000/api/baserow/`
+3. **Proxy pass corrigido**: `/api/baserow/` → `http://127.0.0.1:3003/api/baserow/`
 4. **Diretório corrigido**: `/var/www/bs-consultoria-net-style-main/dist`
 5. **Headers adicionados**: CORS, Cache-Control apropriados
 

@@ -432,7 +432,7 @@ export async function fetchAllPropertiesAdmin(): Promise<Property[]> {
 export async function movePropertyImages(tempId: string, realId: string): Promise<string[]> {
   try {
     // Use production API URL if available
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
     const moveUrl = `${apiUrl}/api/move-images`;
 
     console.log(`Moving images from ${tempId} to ${realId}...`);

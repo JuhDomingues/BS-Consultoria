@@ -67,9 +67,9 @@ server {
     # IMPORTANTE: As rotas mais específicas devem vir PRIMEIRO
     # ==================================================================
 
-    # 1. API PRINCIPAL - Backend na porta 3000
+    # 1. API PRINCIPAL - Backend na porta 3003
     location /api/baserow/ {
-        proxy_pass http://127.0.0.1:3000/api/baserow/;
+        proxy_pass http://127.0.0.1:3003/api/baserow/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

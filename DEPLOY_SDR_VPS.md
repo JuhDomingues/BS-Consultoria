@@ -14,7 +14,7 @@ Mas o servidor SDR não está rodando no VPS. Este guia mostra como configurar.
 ```
 WhatsApp → Evolution API → Nginx (VPS) → SDR Server (porta 3002) → OpenAI
                                       ↓
-                              Frontend Server (porta 3000)
+                              Frontend Server (porta 3003)
 ```
 
 ## 🔧 Passos de Configuração
@@ -97,7 +97,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000
+        PORT: 3003
       },
       error_file: './logs/error.log',
       out_file: './logs/out.log',
@@ -168,9 +168,9 @@ server {
 
     # ... configurações existentes ...
 
-    # Proxy para o servidor principal (porta 3000)
+    # Proxy para o servidor principal (porta 3003)
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:3003;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

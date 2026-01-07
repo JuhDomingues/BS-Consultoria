@@ -145,7 +145,7 @@ BASEROW_TABLE_ID=693576
 
 # Portas
 SDR_PORT=3002
-PORT=3000
+PORT=3003
 
 # Site
 SITE_BASE_URL=https://bsconsultoriadeimoveis.com.br

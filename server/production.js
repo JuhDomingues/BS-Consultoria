@@ -20,7 +20,7 @@ dotenv.config({ path: envPath });
 console.log(`Loading environment from: ${envPath}`);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3003;
 
 // CORS Configuration - Allow both www and non-www domains
 const corsOptions = {

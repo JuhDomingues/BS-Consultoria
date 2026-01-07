@@ -26,7 +26,7 @@ for id in "${NEW_IDS[@]}"; do
     echo "🆔 ID Baserow: $id"
 
     # Buscar dados deste imóvel
-    data=$(curl -s http://127.0.0.1:3000/api/baserow/properties | jq -r ".results[] | select(.id == $id) | \"Título: \(.Title // .title)\nLocalização: \(.location // \"N/A\")\nPreço: \(.Price // .price)\nTipo: \(.Type.value // .Type // .type)\nImagens: \(.images // .Images)\"")
+    data=$(curl -s http://127.0.0.1:3003/api/baserow/properties | jq -r ".results[] | select(.id == $id) | \"Título: \(.Title // .title)\nLocalização: \(.location // \"N/A\")\nPreço: \(.Price // .price)\nTipo: \(.Type.value // .Type // .type)\nImagens: \(.images // .Images)\"")
 
     if [ ! -z "$data" ]; then
         echo "$data"

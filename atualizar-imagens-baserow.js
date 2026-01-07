@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuração
-const BACKEND_URL = 'http://127.0.0.1:3000';
+const BACKEND_URL = 'http://127.0.0.1:3003';
 
 // Mapeamento ID novo → ID antigo
 // PREENCHA ESTE OBJETO COM OS MAPEAMENTOS CORRETOS

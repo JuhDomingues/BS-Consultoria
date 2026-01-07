@@ -115,10 +115,10 @@ https://bsconsultoriadeimoveis.com.br/imoveis/1668579/image_1.png
 Execute na VPS:
 ```bash
 # Ver dados de todos os imóveis
-curl http://127.0.0.1:3000/api/baserow/properties | jq '.results[] | {id, title: .Title, location}'
+curl http://127.0.0.1:3003/api/baserow/properties | jq '.results[] | {id, title: .Title, location}'
 
 # Ver dados de um imóvel específico (ex: ID 97)
-curl http://127.0.0.1:3000/api/baserow/properties | jq '.results[] | select(.id == 97)'
+curl http://127.0.0.1:3003/api/baserow/properties | jq '.results[] | select(.id == 97)'
 ```
 
 ### Método 3: Usar o painel do Baserow

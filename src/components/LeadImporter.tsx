@@ -190,8 +190,11 @@ export const LeadImporter = ({ open, onOpenChange, onSuccess }: LeadImporterProp
 
     try {
       setImporting(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const sdrUrl = apiUrl.replace(':3000', ':3002').replace(':3001', ':3002');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+      const sdrUrl = apiUrl
+        .replace(':3003', ':3002')
+        .replace(':3000', ':3002')
+        .replace(':3001', ':3002');
 
       let successCount = 0;
       let errorCount = 0;
