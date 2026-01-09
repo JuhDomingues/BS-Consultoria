@@ -13,6 +13,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    cors: {
+      origin: '*',
+      credentials: true,
+    },
   },
   plugins: [react()],
   resolve: {
