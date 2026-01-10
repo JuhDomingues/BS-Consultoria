@@ -776,7 +776,10 @@ function detectPropertyInfoRequest(message) {
     'manda ai',
     'envia ai',
     'mostra',
-    'manda'
+    'manda',
+    // Standalone photo requests
+    'fotos',
+    'foto'
   ];
 
   const lowerMessage = message.toLowerCase().trim();
@@ -905,8 +908,8 @@ function aiWillSendPropertyDetails(aiResponse) {
   // Check if AI explicitly says it will send photos/details
   const willSend = indicators.some(indicator => lowerResponse.includes(indicator));
 
-  // Also check if the response contains emoji that indicates sending (📸, 🏠, 📍)
-  const hasSendingEmoji = /📸|📩|📤/.test(aiResponse);
+  // Also check if the response contains emoji that indicates sending (📸, 📩, 📤, 👍)
+  const hasSendingEmoji = /📸|📩|📤|👍/.test(aiResponse);
 
   return willSend || hasSendingEmoji;
 }
