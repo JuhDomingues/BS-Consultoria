@@ -45,7 +45,7 @@ echo ""
 
 # 2. Instalar/atualizar dependências
 echo -e "${YELLOW}📦 2/7 - Instalando dependências...${NC}"
-npm install --production
+npm install
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Erro ao instalar dependências${NC}"
     exit 1
