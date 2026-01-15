@@ -780,6 +780,24 @@ function detectPropertyInfoRequest(message) {
     'envia ai',
     'mostra',
     'manda',
+    // Information requests
+    'gostaria de mais informações',
+    'gostaria de mais informacao',
+    'quero mais informações',
+    'quero mais informacao',
+    'preciso de mais informações',
+    'preciso de mais informacao',
+    'me dá mais informações',
+    'me da mais informacao',
+    'quero saber mais',
+    'quero conhecer',
+    'mais detalhes',
+    'detalhes do imóvel',
+    'detalhes do imovel',
+    'informações do imóvel',
+    'informacoes do imovel',
+    'me fala mais',
+    'conte mais',
     // Standalone photo requests
     'fotos',
     'foto'
@@ -1438,8 +1456,17 @@ IMPORTANTE - MESMO VINDO DO SITE:
     }
 
     // Detect if customer chose to continue with Mia (vs human consultant)
-    const choseMia = /pode me ajudar|pode ajudar|continua comigo|você mesma|com você|contigo/i.test(message.toLowerCase());
-    const choseHuman = /consultor|corretor|humano|pessoa|atendente/i.test(message.toLowerCase());
+    // Expanded patterns to catch more affirmative responses
+    const messageLower = message.toLowerCase().trim();
+    const choseMia = (
+      /pode me ajudar|pode ajudar|continua comigo|você mesma|com você|contigo/.test(messageLower) ||
+      /quero conhecer|quero saber|me ajude|me ajuda|me mostra|quero ver/.test(messageLower) ||
+      /pode sim|claro|com certeza|perfeito|ótimo|beleza/.test(messageLower) ||
+      // Match "sim" or "quero" but NOT if followed by consultant-related words
+      (/^sim\s*$|^sim[,.]|^sim\s+[^c]/.test(messageLower) && !/consultor|corretor|humano/.test(messageLower)) ||
+      (/\bquero\b/.test(messageLower) && !/consultor|corretor|humano/.test(messageLower))
+    );
+    const choseHuman = /consultor|corretor|humano|pessoa|atendente/i.test(messageLower);
 
     if (context.askedAboutPreference && choseMia && !choseHuman) {
       context.qualificationCompleted = true;
@@ -1487,16 +1514,25 @@ IMPORTANTE - MESMO VINDO DO SITE:
 
     // STRICT RULE: Only send property details when:
     // 1. Customer has been qualified (chose to continue with Mia) OR
-    // 2. Customer EXPLICITLY requests photos/details (e.g., "me manda foto")
+    // 2. Customer EXPLICITLY requests photos/details (e.g., "me manda foto") OR
+    // 3. Customer confirms "sim" after Mia asked if they want photos/details
     //
     // NEVER send details just because:
     // - Customer came from website
     // - AI mentioned sending
-    // - Customer said generic "sim" or "quero"
     const qualificationPassed = context.qualificationCompleted === true;
     const explicitPhotoRequest = isRequestingInfo;
 
-    const shouldSendDetails = (qualificationPassed || explicitPhotoRequest) && activeProperties.length > 0;
+    // Check if Mia just asked about sending photos/details in the previous message
+    const lastAssistantMessage = context.history
+      .filter(h => h.role === 'assistant')
+      .slice(-1)[0]?.content || '';
+    const miaAskedAboutPhotos = /quer que eu envie|envio as fotos|mando as fotos|enviar.*fotos|enviar.*detalhes/i.test(lastAssistantMessage);
+    const customerConfirmedPhotos = /^sim\s*$|^sim[,.]|^quero\s*$|^pode\s*$/i.test(messageLower.trim()) && miaAskedAboutPhotos;
+
+    console.log(`Mia asked about photos: ${miaAskedAboutPhotos} | Customer confirmed: ${customerConfirmedPhotos} | Last Mia msg: "${lastAssistantMessage.substring(0, 80)}"`);
+
+    const shouldSendDetails = (qualificationPassed || explicitPhotoRequest || customerConfirmedPhotos) && activeProperties.length > 0;
 
     if (!shouldSendDetails && (cameFromPropertyPage || aiWillSend)) {
       console.log('⚠️  BLOCKED: Customer not qualified yet. Must complete qualification before sending property details.');
