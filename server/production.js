@@ -758,11 +758,28 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
       return res.status(400).json({ error: 'No valid phone numbers provided' });
     }
 
+    // Anti-spam configuration
+    const DELAY_BETWEEN_MESSAGES = 3000; // 3 seconds between each message
+    const BATCH_SIZE = 20; // Messages per batch
+    const DELAY_BETWEEN_BATCHES = 60000; // 1 minute pause between batches
+    const MAX_RECIPIENTS_WARNING = 50; // Warn if more than this
+
+    // Warning for large broadcasts
+    if (uniqueRecipients.length > MAX_RECIPIENTS_WARNING) {
+      console.log(`⚠️  WARNING: Large broadcast with ${uniqueRecipients.length} recipients. Risk of WhatsApp blocking.`);
+    }
+
+    console.log(`📤 Broadcast config: ${uniqueRecipients.length} recipients, ${BATCH_SIZE} per batch, ${DELAY_BETWEEN_MESSAGES/1000}s delay`);
+
     const results = [];
-    const DELAY_BETWEEN_MESSAGES = 500; // 500ms delay to avoid rate limiting
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 5; // Stop if 5 failures in a row (likely disconnected)
 
     for (let i = 0; i < uniqueRecipients.length; i++) {
       const recipient = uniqueRecipients[i];
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const positionInBatch = (i % BATCH_SIZE) + 1;
+
       const personalizedMessage = applyMessageTemplate(message, {
         name: recipient.name,
         firstName: recipient.firstName,
@@ -774,32 +791,59 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
           phoneNumber: recipient.phoneNumber,
           status: 'sent',
         });
-        console.log(`  ✅ Sent to ${recipient.phoneNumber} (${i + 1}/${uniqueRecipients.length})`);
+        console.log(`  ✅ [Batch ${batchNumber}] Sent to ${recipient.phoneNumber} (${i + 1}/${uniqueRecipients.length})`);
+        consecutiveFailures = 0; // Reset on success
       } catch (error) {
-        console.error(`  ❌ Failed to send to ${recipient.phoneNumber}:`, error.message);
+        console.error(`  ❌ [Batch ${batchNumber}] Failed to send to ${recipient.phoneNumber}:`, error.message);
         results.push({
           phoneNumber: recipient.phoneNumber,
           status: 'failed',
           error: error.message,
         });
+        consecutiveFailures++;
+
+        // Check if we should stop due to connection issues
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          console.error(`🛑 STOPPING: ${MAX_CONSECUTIVE_FAILURES} consecutive failures. WhatsApp may be disconnected.`);
+          // Mark remaining as failed
+          for (let j = i + 1; j < uniqueRecipients.length; j++) {
+            results.push({
+              phoneNumber: uniqueRecipients[j].phoneNumber,
+              status: 'failed',
+              error: 'Broadcast stopped: connection issue detected',
+            });
+          }
+          break;
+        }
       }
 
-      // Add delay between messages (except for the last one)
+      // Delay logic
       if (i < uniqueRecipients.length - 1) {
-        await sleep(DELAY_BETWEEN_MESSAGES);
+        // Check if we're at the end of a batch
+        if (positionInBatch === BATCH_SIZE) {
+          console.log(`  ⏸️  Batch ${batchNumber} complete. Waiting ${DELAY_BETWEEN_BATCHES/1000}s before next batch...`);
+          await sleep(DELAY_BETWEEN_BATCHES);
+        } else {
+          // Regular delay between messages
+          await sleep(DELAY_BETWEEN_MESSAGES);
+        }
       }
     }
 
     const sent = results.filter(r => r.status === 'sent').length;
+    const failed = results.filter(r => r.status === 'failed').length;
 
-    console.log(`📊 Broadcast complete: ${sent}/${uniqueRecipients.length} sent`);
+    console.log(`📊 Broadcast complete: ${sent} sent, ${failed} failed out of ${uniqueRecipients.length}`);
 
     res.json({
       success: true,
       total: uniqueRecipients.length,
       sent,
-      failed: uniqueRecipients.length - sent,
+      failed,
       results,
+      warning: uniqueRecipients.length > MAX_RECIPIENTS_WARNING
+        ? `Large broadcast (${uniqueRecipients.length} recipients). Consider sending in smaller batches over multiple days.`
+        : null,
     });
   } catch (error) {
     console.error('Error sending WhatsApp broadcast:', error);
