@@ -488,8 +488,10 @@ app.post('/api/baserow/leads', async (req, res) => {
     // Create lead in Baserow
     const newLead = await baserowRequest(
       `/api/database/rows/table/${BASEROW_LEADS_TABLE_ID}/?user_field_names=true`,
-      'POST',
-      leadData
+      {
+        method: 'POST',
+        body: JSON.stringify(leadData),
+      }
     );
 
     console.log('📥 Response from Baserow:', JSON.stringify(newLead, null, 2));
