@@ -97,6 +97,55 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// SDR Server proxy - forward requests to SDR server on port 3002
+const SDR_SERVER_URL = process.env.SDR_SERVER_URL || 'http://localhost:3002';
+
+app.get('/api/conversations', async (req, res) => {
+  try {
+    const response = await fetch(`${SDR_SERVER_URL}/api/conversations`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying to SDR server (conversations):', error.message);
+    res.status(503).json({
+      error: 'SDR server unavailable',
+      message: error.message,
+      success: false
+    });
+  }
+});
+
+app.get('/api/conversations/:phoneNumber', async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const response = await fetch(`${SDR_SERVER_URL}/api/conversations/${encodeURIComponent(phoneNumber)}`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying to SDR server (conversation detail):', error.message);
+    res.status(503).json({
+      error: 'SDR server unavailable',
+      message: error.message,
+      success: false
+    });
+  }
+});
+
+app.get('/api/sdr-stats', async (req, res) => {
+  try {
+    const response = await fetch(`${SDR_SERVER_URL}/api/sdr-stats`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error proxying to SDR server (stats):', error.message);
+    res.status(503).json({
+      error: 'SDR server unavailable',
+      message: error.message,
+      success: false
+    });
+  }
+});
+
 // Upload endpoint
 app.post('/api/upload-image', upload.single('file'), (req, res) => {
   try {
@@ -633,6 +682,9 @@ function applyMessageTemplate(template, variables = {}) {
     .replace(/{{\s*(primeiroNome|firstName)\s*}}/gi, firstName || name || 'cliente');
 }
 
+// Helper function to add delay between messages
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Helper function to send WhatsApp text message
 async function sendWhatsAppText(phoneNumber, text) {
   if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
@@ -707,7 +759,10 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
     }
 
     const results = [];
-    for (const recipient of uniqueRecipients) {
+    const DELAY_BETWEEN_MESSAGES = 500; // 500ms delay to avoid rate limiting
+
+    for (let i = 0; i < uniqueRecipients.length; i++) {
+      const recipient = uniqueRecipients[i];
       const personalizedMessage = applyMessageTemplate(message, {
         name: recipient.name,
         firstName: recipient.firstName,
@@ -719,7 +774,7 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
           phoneNumber: recipient.phoneNumber,
           status: 'sent',
         });
-        console.log(`  ✅ Sent to ${recipient.phoneNumber}`);
+        console.log(`  ✅ Sent to ${recipient.phoneNumber} (${i + 1}/${uniqueRecipients.length})`);
       } catch (error) {
         console.error(`  ❌ Failed to send to ${recipient.phoneNumber}:`, error.message);
         results.push({
@@ -727,6 +782,11 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
           status: 'failed',
           error: error.message,
         });
+      }
+
+      // Add delay between messages (except for the last one)
+      if (i < uniqueRecipients.length - 1) {
+        await sleep(DELAY_BETWEEN_MESSAGES);
       }
     }
 
