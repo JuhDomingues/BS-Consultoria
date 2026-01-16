@@ -463,25 +463,31 @@ app.post('/api/baserow/leads', async (req, res) => {
     }
 
     // Prepare lead data for Baserow
+    // Note: Baserow doesn't accept null for text fields, use empty string instead
     const leadData = {
       Nome: name,
       Telefone: phoneNumber,
-      Email: email || null,
+      Score: 0,
+      Qualidade: 'Frio',
       Fonte: source || 'manual',
-      Score: 0, // Initial score
-      Qualidade: 'Frio', // Initial quality
       TotalMensagens: 0,
-      DataCadastro: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-      TipoTransacao: typebotData?.tipoTransacao || null,
-      TipoImovel: typebotData?.tipoImovel || null,
-      BudgetCompra: typebotData?.budgetCompra || null,
-      BudgetLocacao: typebotData?.budgetLocacao || null,
-      Localizacao: typebotData?.localizacao || null,
-      Prazo: typebotData?.prazo || null,
-      Financiamento: typebotData?.financiamento || null,
-      Observacoes: notes || null,
-      Indicadores: JSON.stringify([]), // Empty indicators array
+      DataCadastro: new Date().toISOString().split('T')[0],
+      TipoTransacao: typebotData?.tipoTransacao || '',
+      TipoImovel: typebotData?.tipoImovel || '',
+      BudgetCompra: typebotData?.budgetCompra || '',
+      BudgetLocacao: typebotData?.budgetLocacao || '',
+      Localizacao: typebotData?.localizacao || '',
+      Prazo: typebotData?.prazo || '',
+      Financiamento: typebotData?.financiamento || '',
+      Observacoes: notes || '',
+      Indicadores: JSON.stringify([]),
+      Tags: '',
     };
+
+    // Only add email if provided (Baserow email field validation)
+    if (email && email.trim()) {
+      leadData.Email = email;
+    }
 
     console.log('📦 Lead data to be sent to Baserow:', JSON.stringify(leadData, null, 2));
 
