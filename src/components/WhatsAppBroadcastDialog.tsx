@@ -217,7 +217,7 @@ export function WhatsAppBroadcastDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Envio em Massa pelo WhatsApp</DialogTitle>
           <DialogDescription>
@@ -225,7 +225,7 @@ export function WhatsAppBroadcastDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-2 flex-1 overflow-y-auto">
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardContent className="pt-6 space-y-4">
@@ -415,7 +415,7 @@ export function WhatsAppBroadcastDialog({
                         </div>
                         <Badge
                           variant="outline"
-                          className={`capitalize text-xs ${
+                          className={`capitalize text-xs shrink-0 ${
                             lead.quality === 'hot' ? 'bg-red-100 text-red-800 border-red-300' :
                             lead.quality === 'warm' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
                             'bg-blue-100 text-blue-800 border-blue-300'
@@ -435,29 +435,31 @@ export function WhatsAppBroadcastDialog({
               </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={handleSend}
-                disabled={sending || selectedLeads.length === 0 || !message.trim()}
-                className="h-10"
-              >
-                {sending ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-                    Enviando para {selectedLeads.length}...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Send className="h-4 w-4" />
-                    Enviar para {selectedLeads.length} {selectedLeads.length === 1 ? 'lead' : 'leads'}
-                  </span>
-                )}
-              </Button>
-              <Button variant="outline" onClick={() => handleClose(false)}>
-                Cancelar
-              </Button>
-            </div>
           </div>
+        </div>
+
+        {/* Botões fixos no rodapé */}
+        <div className="flex gap-3 pt-4 border-t mt-4">
+          <Button
+            onClick={handleSend}
+            disabled={sending || selectedLeads.length === 0 || !message.trim()}
+            className="flex-1 h-10"
+          >
+            {sending ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                Enviando para {selectedLeads.length}...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Send className="h-4 w-4" />
+                Enviar para {selectedLeads.length} {selectedLeads.length === 1 ? 'lead' : 'leads'}
+              </span>
+            )}
+          </Button>
+          <Button variant="outline" onClick={() => handleClose(false)}>
+            Cancelar
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
