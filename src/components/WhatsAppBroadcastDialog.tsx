@@ -23,7 +23,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, Filter, MessageCircle, Send, Users, CheckSquare, Square } from "lucide-react";
+import { AlertCircle, CheckCircle, Filter, MessageCircle, Send, Users, CheckSquare, Square, Loader2, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import type { Lead } from "@/types/crm";
 
 interface WhatsAppBroadcastDialogProps {
@@ -42,6 +43,19 @@ interface BroadcastResult {
     status: "sent" | "failed";
     error?: string;
   }[];
+}
+
+interface BroadcastProgress {
+  current: number;
+  total: number;
+  sent: number;
+  failed: number;
+  batch?: number;
+  lastName?: string;
+  lastStatus?: "sent" | "failed";
+  lastError?: string;
+  warning?: string;
+  pauseMessage?: string;
 }
 
 const QUALITY_OPTIONS = [
@@ -88,6 +102,7 @@ export function WhatsAppBroadcastDialog({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<BroadcastResult | null>(null);
   const [selectedPhones, setSelectedPhones] = useState<Set<string>>(new Set());
+  const [progress, setProgress] = useState<BroadcastProgress | null>(null);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(leads.flatMap((lead) => lead.tags || []))).sort();
@@ -162,6 +177,7 @@ export function WhatsAppBroadcastDialog({
     try {
       setSending(true);
       setResult(null);
+      setProgress({ current: 0, total: selectedLeads.length, sent: 0, failed: 0 });
 
       const response = await fetch(`${getApiUrl()}/api/whatsapp/broadcast`, {
         method: "POST",
@@ -177,21 +193,124 @@ export function WhatsAppBroadcastDialog({
         }),
       });
 
-      const data = await response.json();
+      // Check if response is SSE (text/event-stream)
+      const contentType = response.headers.get("content-type");
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Falha ao enviar mensagens");
+      if (contentType?.includes("text/event-stream")) {
+        // Handle SSE stream
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error("Failed to read response stream");
+        }
+
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                switch (data.type) {
+                  case "start":
+                    setProgress({
+                      current: 0,
+                      total: data.total,
+                      sent: 0,
+                      failed: 0,
+                      warning: data.warning,
+                    });
+                    break;
+
+                  case "progress":
+                    setProgress({
+                      current: data.current,
+                      total: data.total,
+                      sent: data.sent,
+                      failed: data.failed,
+                      batch: data.batch,
+                      lastName: data.lastName,
+                      lastStatus: data.lastStatus,
+                      lastError: data.lastError,
+                      pauseMessage: undefined,
+                    });
+                    break;
+
+                  case "batch_pause":
+                    setProgress((prev) => prev ? {
+                      ...prev,
+                      pauseMessage: data.message,
+                    } : null);
+                    break;
+
+                  case "stopped":
+                    setProgress((prev) => prev ? {
+                      ...prev,
+                      current: data.current,
+                      sent: data.sent,
+                      failed: data.failed,
+                      warning: data.reason,
+                    } : null);
+                    toast({
+                      title: "Envio interrompido",
+                      description: data.reason,
+                      variant: "destructive",
+                    });
+                    break;
+
+                  case "complete":
+                    setResult({
+                      total: data.total,
+                      sent: data.sent,
+                      failed: data.failed,
+                      results: data.results,
+                    });
+                    setProgress(null);
+                    toast({
+                      title: "Campanha enviada!",
+                      description: `${data.sent} de ${data.total} leads receberam a mensagem.`,
+                    });
+                    onSuccess?.();
+                    break;
+
+                  case "error":
+                    throw new Error(data.error);
+                }
+              } catch (parseError) {
+                console.error("Error parsing SSE data:", parseError);
+              }
+            }
+          }
+        }
+      } else {
+        // Handle regular JSON response (fallback)
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Falha ao enviar mensagens");
+        }
+
+        setResult(data);
+        setProgress(null);
+        toast({
+          title: "Campanha enviada!",
+          description: `${data.sent} de ${data.total} leads receberam a mensagem.`,
+        });
+
+        onSuccess?.();
       }
-
-      setResult(data);
-      toast({
-        title: "Campanha enviada!",
-        description: `${data.sent} de ${data.total} leads receberam a mensagem.`,
-      });
-
-      onSuccess?.();
     } catch (error) {
       console.error("WhatsApp broadcast error:", error);
+      setProgress(null);
       toast({
         title: "Erro no envio",
         description:
@@ -204,15 +323,18 @@ export function WhatsAppBroadcastDialog({
   };
 
   const handleClose = (state: boolean) => {
-    if (!state) {
+    if (!state && !sending) {
       setResult(null);
+      setProgress(null);
       setMessage("");
       setSearchTerm("");
       setTagFilter("all");
       setQualityFilter("all");
       setSelectedPhones(new Set());
     }
-    onOpenChange(state);
+    if (!sending) {
+      onOpenChange(state);
+    }
   };
 
   return (
@@ -259,6 +381,83 @@ export function WhatsAppBroadcastDialog({
                 )}
               </CardContent>
             </Card>
+
+            {/* Real-time progress */}
+            {progress && (
+              <Card className="border-primary/50 bg-primary/5">
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center gap-2 text-base font-semibold">
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                    Enviando mensagens...
+                  </div>
+
+                  {progress.warning && (
+                    <div className="flex items-center gap-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
+                      <AlertTriangle className="h-4 w-4" />
+                      {progress.warning}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progresso: {progress.current} de {progress.total}</span>
+                      <span className="font-medium">
+                        {progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}%
+                      </span>
+                    </div>
+                    <Progress value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0} className="h-3" />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">{progress.sent}</p>
+                      <p className="text-xs text-muted-foreground">Enviadas</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-red-600">{progress.failed}</p>
+                      <p className="text-xs text-muted-foreground">Falhas</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-muted-foreground">{progress.total - progress.current}</p>
+                      <p className="text-xs text-muted-foreground">Restantes</p>
+                    </div>
+                  </div>
+
+                  {progress.batch && (
+                    <div className="text-xs text-muted-foreground">
+                      Lote atual: {progress.batch}
+                    </div>
+                  )}
+
+                  {progress.pauseMessage && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-2 rounded">
+                      <Clock className="h-4 w-4" />
+                      {progress.pauseMessage}
+                    </div>
+                  )}
+
+                  {progress.lastName && (
+                    <div className={`flex items-center gap-2 text-sm p-2 rounded ${
+                      progress.lastStatus === 'sent'
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-red-600 bg-red-50'
+                    }`}>
+                      {progress.lastStatus === 'sent' ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      <span className="truncate">
+                        {progress.lastName}
+                        {progress.lastStatus === 'failed' && progress.lastError && (
+                          <span className="text-xs ml-1">- {progress.lastError}</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {result && (
               <Card>
