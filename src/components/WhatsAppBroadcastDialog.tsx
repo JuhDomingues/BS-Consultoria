@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getApiUrl } from "@/utils/api";
 import {
   Dialog,
   DialogContent,
@@ -162,8 +163,7 @@ export function WhatsAppBroadcastDialog({
       setSending(true);
       setResult(null);
 
-      const apiUrl = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_URL || "");
-      const response = await fetch(`${apiUrl}/api/whatsapp/broadcast`, {
+      const response = await fetch(`${getApiUrl()}/api/whatsapp/broadcast`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
