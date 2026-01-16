@@ -298,6 +298,11 @@ const BASEROW_TOKEN = process.env.BASEROW_TOKEN;
 const BASEROW_TABLE_ID = process.env.BASEROW_TABLE_ID;
 const BASEROW_LEADS_TABLE_ID = process.env.BASEROW_LEADS_TABLE_ID;
 
+// Evolution API configuration (for WhatsApp broadcast)
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE;
+
 // Helper function to make Baserow requests
 async function baserowRequest(endpoint, options = {}) {
   if (!BASEROW_TOKEN) {
@@ -569,6 +574,156 @@ app.patch('/api/baserow/leads/phone/:phoneNumber', async (req, res) => {
   }
 });
 
+// ==================== WHATSAPP BROADCAST ====================
+
+// Helper function to normalize phone numbers
+function normalizePhoneNumber(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+
+  if (!digits) return null;
+
+  if (digits.startsWith('55') && digits.length >= 12 && digits.length <= 13) {
+    return digits;
+  }
+
+  if (digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  if (digits.length > 13 && digits.startsWith('55')) {
+    return digits.slice(0, 13);
+  }
+
+  return digits.length >= 12 ? digits : null;
+}
+
+// Helper function to apply message template variables
+function applyMessageTemplate(template, variables = {}) {
+  if (!template) return '';
+
+  const name = variables.name || variables.nome || '';
+  const firstName = variables.firstName || variables.primeiroNome || (name ? name.split(' ')[0] : '');
+
+  return template
+    .replace(/{{\s*(nome|name)\s*}}/gi, name || firstName || 'cliente')
+    .replace(/{{\s*(primeiroNome|firstName)\s*}}/gi, firstName || name || 'cliente');
+}
+
+// Helper function to send WhatsApp text message
+async function sendWhatsAppText(phoneNumber, text) {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
+    throw new Error('Evolution API credentials not configured');
+  }
+
+  const payload = {
+    number: phoneNumber,
+    text,
+  };
+
+  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': EVOLUTION_API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Evolution API error: ${response.status} - ${responseText}`);
+  }
+
+  return responseText ? JSON.parse(responseText) : {};
+}
+
+// WhatsApp bulk messaging endpoint
+app.post('/api/whatsapp/broadcast', async (req, res) => {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
+      return res.status(500).json({ error: 'Evolution API credentials not configured' });
+    }
+
+    const { message, recipients } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: 'At least one recipient is required' });
+    }
+
+    console.log(`📤 WhatsApp Broadcast: Sending to ${recipients.length} recipients`);
+
+    const uniqueRecipients = [];
+    const seenNumbers = new Set();
+
+    for (const recipient of recipients) {
+      const normalizedNumber = normalizePhoneNumber(recipient.phoneNumber || recipient.number);
+      if (!normalizedNumber || seenNumbers.has(normalizedNumber)) {
+        continue;
+      }
+
+      seenNumbers.add(normalizedNumber);
+      const name = recipient.name || recipient.nome || '';
+      const firstName = name ? name.trim().split(' ')[0] : '';
+
+      uniqueRecipients.push({
+        phoneNumber: normalizedNumber,
+        name,
+        firstName,
+      });
+    }
+
+    if (uniqueRecipients.length === 0) {
+      return res.status(400).json({ error: 'No valid phone numbers provided' });
+    }
+
+    const results = [];
+    for (const recipient of uniqueRecipients) {
+      const personalizedMessage = applyMessageTemplate(message, {
+        name: recipient.name,
+        firstName: recipient.firstName,
+      });
+
+      try {
+        await sendWhatsAppText(recipient.phoneNumber, personalizedMessage);
+        results.push({
+          phoneNumber: recipient.phoneNumber,
+          status: 'sent',
+        });
+        console.log(`  ✅ Sent to ${recipient.phoneNumber}`);
+      } catch (error) {
+        console.error(`  ❌ Failed to send to ${recipient.phoneNumber}:`, error.message);
+        results.push({
+          phoneNumber: recipient.phoneNumber,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    const sent = results.filter(r => r.status === 'sent').length;
+
+    console.log(`📊 Broadcast complete: ${sent}/${uniqueRecipients.length} sent`);
+
+    res.json({
+      success: true,
+      total: uniqueRecipients.length,
+      sent,
+      failed: uniqueRecipients.length - sent,
+      results,
+    });
+  } catch (error) {
+    console.error('Error sending WhatsApp broadcast:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Import other API routes if they exist
 const apiRoutes = [
   'health',
@@ -643,6 +798,7 @@ app.listen(PORT, '0.0.0.0', () => {
 ║   - GET    /api/baserow/leads                             ║
 ║   - POST   /api/baserow/leads                             ║
 ║   - PATCH  /api/baserow/leads/phone/:phoneNumber          ║
+║   - POST   /api/whatsapp/broadcast                        ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);

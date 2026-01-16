@@ -130,6 +130,11 @@
     {
       "name": "Observacoes",
       "type": "long_text"
+    },
+    {
+      "name": "Tags",
+      "type": "text",
+      "text_default": ""
     }
   ]
 }

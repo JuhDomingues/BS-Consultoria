@@ -9,6 +9,8 @@ echo "🚀 DEPLOY BS CONSULTORIA - VPS"
 echo "=========================================="
 echo ""
 
+
+
 # 1. Pull das mudanças
 echo "📥 1/5 - Baixando atualizações do GitHub..."
 cd /var/www/bs-consultoria-net-style-main
