@@ -36,3 +36,8 @@ dist-ssr
 # Temporary files
 temp/
 tmp/
+
+# Local scripts and data files (not versioned)
+import-typebot-csv.js
+update-lead-quality.js
+typebot-form-*.csv

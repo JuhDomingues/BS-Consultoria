@@ -364,13 +364,13 @@ const Admin = () => {
     try {
       console.log('Creating property...');
 
-      // Create property in Baserow (returns property with real ID)
+      // Create property in Baserow first (returns property with real ID)
       const newProperty = await createProperty(data);
       const realId = newProperty.id;
 
       console.log('Property created with realId:', realId);
 
-      // If we have image files (from AI form), upload them now using the real ID
+      // If we have image files, upload them now using the real ID
       if (imageFiles && imageFiles.length > 0) {
         console.log(`Uploading ${imageFiles.length} images for property ${realId}...`);
         const uploadedUrls: string[] = [];
@@ -412,18 +412,13 @@ const Admin = () => {
 
         toast({
           title: "Imóvel criado com sucesso!",
-          description: `ID ${realId}. ${uploadedUrls.length} imagens adicionadas.`,
+          description: `ID ${realId}. ${uploadedUrls.length} imagem(ns) adicionada(s).`,
         });
       } else {
         toast({
           title: "Imóvel criado com sucesso!",
-          description: `ID ${realId}. Agora você pode adicionar as imagens.`,
+          description: `ID ${realId}.`,
         });
-
-        // Automatically open edit mode so user can add images (only for manual form)
-        setEditingProperty(newProperty as unknown as Property);
-        setFormMode("edit");
-        setManualFormOpen(true);
       }
 
       await loadProperties();
@@ -433,14 +428,55 @@ const Admin = () => {
     }
   };
 
-  const handleUpdateProperty = async (data: Partial<Property>) => {
+  const handleUpdateProperty = async (data: Partial<Property>, imageFiles?: File[]) => {
     if (!editingProperty) return;
 
     try {
-      await updateProperty(editingProperty.id, data);
+      const propertyId = editingProperty.id;
+      let finalImages = data.images || [];
+
+      // If we have new image files, upload them
+      if (imageFiles && imageFiles.length > 0) {
+        console.log(`Uploading ${imageFiles.length} new images for property ${propertyId}...`);
+        const apiUrl = getApiUrl();
+
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i];
+          const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `image_${finalImages.length + i + 1}.${fileExtension}`;
+
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('propertyId', propertyId);
+          formData.append('fileName', fileName);
+
+          try {
+            const uploadResponse = await fetch(`${apiUrl}/api/upload-image`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              finalImages.push(uploadData.url);
+              console.log(`Image ${i + 1} uploaded:`, uploadData.url);
+            } else {
+              console.error(`Failed to upload image ${i + 1}`);
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image ${i + 1}:`, uploadError);
+          }
+        }
+      }
+
+      // Update property with all data including images
+      await updateProperty(propertyId, { ...data, images: finalImages });
+
       toast({
         title: "Imóvel atualizado!",
-        description: "As alterações foram salvas com sucesso.",
+        description: imageFiles && imageFiles.length > 0
+          ? `${imageFiles.length} nova(s) imagem(ns) adicionada(s).`
+          : "As alterações foram salvas com sucesso.",
       });
       await loadProperties();
       setEditingProperty(null);

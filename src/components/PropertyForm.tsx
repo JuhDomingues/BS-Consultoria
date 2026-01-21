@@ -18,15 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
 import { Property } from "@/utils/parsePropertyData";
-import { ImageUpload } from "@/components/ImageUpload";
+import { ImageSelector } from "@/components/ImageSelector";
 
 interface PropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Partial<Property>) => Promise<void>;
+  onSubmit: (data: Partial<Property>, imageFiles?: File[]) => Promise<void>;
   initialData?: Property | null;
   mode: "create" | "edit";
 }
@@ -39,6 +37,7 @@ export function PropertyForm({
   mode,
 }: PropertyFormProps) {
   const [loading, setLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const [formData, setFormData] = useState<Partial<Property>>({
     id: "",
@@ -63,8 +62,9 @@ export function PropertyForm({
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      setSelectedFiles([]); // Clear selected files when editing existing property
     } else {
-      // Reset form when creating new (no temp ID needed anymore)
+      // Reset form when creating new
       setFormData({
         id: "",
         title: "",
@@ -84,6 +84,7 @@ export function PropertyForm({
         isExclusive: false,
         isFeatured: false,
       });
+      setSelectedFiles([]);
     }
   }, [initialData, open]);
 
@@ -92,7 +93,8 @@ export function PropertyForm({
     setLoading(true);
 
     try {
-      await onSubmit(formData);
+      // Pass both form data and selected image files
+      await onSubmit(formData, selectedFiles.length > 0 ? selectedFiles : undefined);
       onOpenChange(false);
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -102,7 +104,7 @@ export function PropertyForm({
     }
   };
 
-  const handleImageChange = (images: string[]) => {
+  const handleExistingImagesChange = (images: string[]) => {
     setFormData({ ...formData, images });
   };
 
@@ -285,22 +287,14 @@ export function PropertyForm({
             />
           </div>
 
-          {/* Images - Only show in edit mode (when we have a real ID) */}
-          {mode === "edit" ? (
-            <ImageUpload
-              images={formData.images || []}
-              onChange={handleImageChange}
-              propertyId={formData.id}
-            />
-          ) : (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                As imagens podem ser adicionadas após criar o imóvel.
-                Primeiro salve os dados básicos, depois edite para adicionar fotos.
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Images */}
+          <ImageSelector
+            existingImages={formData.images || []}
+            onExistingImagesChange={handleExistingImagesChange}
+            selectedFiles={selectedFiles}
+            onFilesChange={setSelectedFiles}
+            propertyId={mode === "edit" ? formData.id : undefined}
+          />
 
           {/* Toggles */}
           <div className="space-y-4">
