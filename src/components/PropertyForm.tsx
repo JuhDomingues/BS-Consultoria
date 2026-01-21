@@ -93,14 +93,8 @@ export function PropertyForm({
     setLoading(true);
 
     try {
-      // Debug: log selected files
-      console.log('PropertyForm handleSubmit - selectedFiles:', selectedFiles);
-      console.log('PropertyForm handleSubmit - selectedFiles.length:', selectedFiles.length);
-
       // Pass both form data and selected image files
       const filesToUpload = selectedFiles.length > 0 ? selectedFiles : undefined;
-      console.log('PropertyForm handleSubmit - filesToUpload:', filesToUpload);
-
       await onSubmit(formData, filesToUpload);
       onOpenChange(false);
     } catch (error) {
