@@ -28,10 +28,12 @@ export function ImageSelector({
   // Create previews for selected files
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    console.log('ImageSelector handleFileSelect - files selected:', files.length);
     if (files.length === 0) return;
 
     // Add new files
     const newFiles = [...selectedFiles, ...files];
+    console.log('ImageSelector handleFileSelect - total files after adding:', newFiles.length);
     onFilesChange(newFiles);
 
     // Create previews for new files
