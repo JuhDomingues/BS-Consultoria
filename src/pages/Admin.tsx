@@ -34,7 +34,6 @@ import {
   updateProperty,
   deleteProperty,
   togglePropertyActive,
-  movePropertyImages,
 } from "@/services/baserow";
 import { clearPropertiesCache } from "@/data/properties";
 import { useToast } from "@/hooks/use-toast";
@@ -361,49 +360,71 @@ const Admin = () => {
     }
   };
 
-  const handleCreateProperty = async (data: Partial<Property>) => {
+  const handleCreateProperty = async (data: Partial<Property>, imageFiles?: File[]) => {
     try {
-      const tempId = data.id; // Save temporary ID (temp_XXXXX)
-      const hasImages = data.images && data.images.length > 0;
+      console.log('Creating property...');
 
-      console.log('Creating property with tempId:', tempId, 'hasImages:', hasImages);
-
-      // 1. Create property in Baserow (returns property with real ID)
+      // Create property in Baserow (returns property with real ID)
       const newProperty = await createProperty(data);
       const realId = newProperty.id;
 
       console.log('Property created with realId:', realId);
 
-      // 2. If property had temporary ID and images, move them to real ID folder
-      if (tempId && tempId.startsWith('temp_') && hasImages) {
-        console.log(`Moving images from ${tempId} to ${realId}...`);
+      // If we have image files (from AI form), upload them now using the real ID
+      if (imageFiles && imageFiles.length > 0) {
+        console.log(`Uploading ${imageFiles.length} images for property ${realId}...`);
+        const uploadedUrls: string[] = [];
+        const apiUrl = getApiUrl();
 
-        try {
-          // Move images from temp folder to real folder
-          const newUrls = await movePropertyImages(tempId, realId);
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i];
+          const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `image_${i + 1}.${fileExtension}`;
 
-          console.log('Images moved successfully. New URLs:', newUrls);
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('propertyId', realId);
+          formData.append('fileName', fileName);
 
-          // 3. Update Baserow with new image URLs
-          if (newUrls && newUrls.length > 0) {
-            await updateProperty(realId, { images: newUrls });
-            console.log('Image URLs updated in Baserow');
+          try {
+            const uploadResponse = await fetch(`${apiUrl}/api/upload-image`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              uploadedUrls.push(uploadData.url);
+              console.log(`Image ${i + 1} uploaded:`, uploadData.url);
+            } else {
+              console.error(`Failed to upload image ${i + 1}`);
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image ${i + 1}:`, uploadError);
           }
-        } catch (moveError) {
-          console.error('Error moving images:', moveError);
-          // Don't fail the whole operation if move fails
-          toast({
-            title: "Atenção",
-            description: "Imóvel criado, mas houve um erro ao mover as imagens. Verifique as URLs.",
-            variant: "destructive",
-          });
         }
-      }
 
-      toast({
-        title: "Imóvel criado com sucesso!",
-        description: `O imóvel foi adicionado ao banco de dados com ID ${realId}.`,
-      });
+        // Update property with image URLs
+        if (uploadedUrls.length > 0) {
+          await updateProperty(realId, { images: uploadedUrls });
+          console.log('Property updated with image URLs');
+        }
+
+        toast({
+          title: "Imóvel criado com sucesso!",
+          description: `ID ${realId}. ${uploadedUrls.length} imagens adicionadas.`,
+        });
+      } else {
+        toast({
+          title: "Imóvel criado com sucesso!",
+          description: `ID ${realId}. Agora você pode adicionar as imagens.`,
+        });
+
+        // Automatically open edit mode so user can add images (only for manual form)
+        setEditingProperty(newProperty as unknown as Property);
+        setFormMode("edit");
+        setManualFormOpen(true);
+      }
 
       await loadProperties();
     } catch (error) {

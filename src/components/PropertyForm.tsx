@@ -18,10 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 import { Property } from "@/utils/parsePropertyData";
 import { ImageUpload } from "@/components/ImageUpload";
-import { Sparkles } from "lucide-react";
-import { generatePropertyContent } from "@/services/openai";
 
 interface PropertyFormProps {
   open: boolean;
@@ -39,11 +39,6 @@ export function PropertyForm({
   mode,
 }: PropertyFormProps) {
   const [loading, setLoading] = useState(false);
-
-  // Generate temporary ID for image upload before saving
-  const generateTempId = () => {
-    return `temp_${Date.now()}`;
-  };
 
   const [formData, setFormData] = useState<Partial<Property>>({
     id: "",
@@ -69,9 +64,9 @@ export function PropertyForm({
     if (initialData) {
       setFormData(initialData);
     } else {
-      // Reset form when creating new with temporary ID for uploads
+      // Reset form when creating new (no temp ID needed anymore)
       setFormData({
-        id: generateTempId(),
+        id: "",
         title: "",
         price: "",
         type: "Apartamento",
@@ -290,12 +285,22 @@ export function PropertyForm({
             />
           </div>
 
-          {/* Images */}
-          <ImageUpload
-            images={formData.images || []}
-            onChange={handleImageChange}
-            propertyId={formData.id}
-          />
+          {/* Images - Only show in edit mode (when we have a real ID) */}
+          {mode === "edit" ? (
+            <ImageUpload
+              images={formData.images || []}
+              onChange={handleImageChange}
+              propertyId={formData.id}
+            />
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                As imagens podem ser adicionadas após criar o imóvel.
+                Primeiro salve os dados básicos, depois edite para adicionar fotos.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Toggles */}
           <div className="space-y-4">

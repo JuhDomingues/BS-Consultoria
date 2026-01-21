@@ -24,7 +24,7 @@ import { generatePropertyWithAI } from "@/services/ai";
 interface AIPropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Partial<Property>) => Promise<void>;
+  onSubmit: (data: Partial<Property>, imageFiles?: File[]) => Promise<void>;
 }
 
 export function AIPropertyForm({
@@ -114,7 +114,8 @@ export function AIPropertyForm({
 
     setLoading(true);
     try {
-      await onSubmit(generatedData);
+      // Pass both the generated data and the image files
+      await onSubmit(generatedData, images);
       onOpenChange(false);
 
       // Reset form

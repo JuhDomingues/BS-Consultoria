@@ -228,41 +228,9 @@ IMPORTANTE:
     console.log('Description length:', aiResponse.description?.length);
     console.log('========================');
 
-    // Upload images to server
-    console.log('Uploading images to server...');
-    const uploadedImageUrls: string[] = [];
-    const tempId = `temp_${Date.now()}`;
-
-    for (let i = 0; i < input.images.length; i++) {
-      const file = input.images[i];
-      const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `image_${i + 1}.${fileExtension}`;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('propertyId', tempId);
-      formData.append('fileName', fileName);
-
-      console.log(`Uploading image ${i + 1}/${input.images.length}...`);
-      const uploadApiUrl = getApiUrl();
-      const uploadResponse = await fetch(`${uploadApiUrl}/api/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (uploadResponse.ok) {
-        const uploadData = await uploadResponse.json();
-        uploadedImageUrls.push(uploadData.url);
-        console.log(`Image ${i + 1} uploaded:`, uploadData.url);
-      } else {
-        console.error(`Failed to upload image ${i + 1}`);
-      }
-    }
-    console.log('All images uploaded:', uploadedImageUrls.length);
-
-    // Build property data
+    // Build property data WITHOUT uploading images yet
+    // Images will be uploaded after the property is created in Baserow (using the real ID)
     const propertyData: Partial<Property> = {
-      id: tempId,
       title: aiResponse.title,
       price: aiResponse.price,
       type: input.type,
@@ -276,7 +244,7 @@ IMPORTANTE:
       parkingSpaces: input.parkingSpaces,
       area: input.area ? parseFloat(input.area) : undefined,
       description: aiResponse.description,
-      images: uploadedImageUrls,
+      images: [], // Images will be added after property creation
       isExclusive: false,
       isFeatured: false,
     };
