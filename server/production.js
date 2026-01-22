@@ -780,28 +780,52 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
-    // Anti-spam configuration
-    const DELAY_BETWEEN_MESSAGES = 3000; // 3 seconds between each message
-    const BATCH_SIZE = 20; // Messages per batch
-    const DELAY_BETWEEN_BATCHES = 60000; // 1 minute pause between batches
-    const MAX_RECIPIENTS_WARNING = 50; // Warn if more than this
+    // Anti-spam configuration - Conservative settings to avoid WhatsApp bans
+    const DELAY_MIN = 8000; // Minimum 8 seconds between messages
+    const DELAY_MAX = 15000; // Maximum 15 seconds between messages
+    const BATCH_SIZE = 10; // Messages per batch (smaller = safer)
+    const BATCH_PAUSE_MIN = 180000; // Minimum 3 minutes between batches
+    const BATCH_PAUSE_MAX = 300000; // Maximum 5 minutes between batches
+    const DAILY_LIMIT_WARNING = 100; // Strong warning above this
+    const DAILY_LIMIT_MAX = 150; // Maximum recommended per day
+    const MAX_RECIPIENTS_WARNING = 30; // Warn if more than this
 
-    // Warning for large broadcasts
-    if (uniqueRecipients.length > MAX_RECIPIENTS_WARNING) {
-      console.log(`⚠️  WARNING: Large broadcast with ${uniqueRecipients.length} recipients. Risk of WhatsApp blocking.`);
+    // Helper function for random delay (simulates human behavior)
+    const getRandomDelay = (min, max) => {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+
+    // Check daily limit
+    if (uniqueRecipients.length > DAILY_LIMIT_MAX) {
+      console.log(`🛑 BLOCKED: ${uniqueRecipients.length} recipients exceeds daily limit of ${DAILY_LIMIT_MAX}`);
+      return res.status(400).json({
+        error: `Limite diário excedido. Máximo recomendado: ${DAILY_LIMIT_MAX} mensagens por dia para evitar banimento.`,
+        limit: DAILY_LIMIT_MAX,
+        requested: uniqueRecipients.length
+      });
     }
 
-    console.log(`📤 Broadcast config: ${uniqueRecipients.length} recipients, ${BATCH_SIZE} per batch, ${DELAY_BETWEEN_MESSAGES/1000}s delay`);
+    // Warning for large broadcasts
+    let warningMessage = null;
+    if (uniqueRecipients.length > DAILY_LIMIT_WARNING) {
+      console.log(`⚠️  WARNING: Large broadcast with ${uniqueRecipients.length} recipients. HIGH risk of WhatsApp blocking.`);
+      warningMessage = `⚠️ ATENÇÃO: Envio grande (${uniqueRecipients.length} destinatários). Risco ALTO de bloqueio do WhatsApp. Recomendado: máximo ${DAILY_LIMIT_WARNING}/dia.`;
+    } else if (uniqueRecipients.length > MAX_RECIPIENTS_WARNING) {
+      console.log(`⚠️  WARNING: Broadcast with ${uniqueRecipients.length} recipients. Moderate risk.`);
+      warningMessage = `Envio moderado (${uniqueRecipients.length} destinatários). Fique atento ao status do WhatsApp.`;
+    }
+
+    console.log(`📤 Broadcast config: ${uniqueRecipients.length} recipients, ${BATCH_SIZE} per batch, ${DELAY_MIN/1000}-${DELAY_MAX/1000}s random delay`);
 
     // Send initial progress
     sendProgress({
       type: 'start',
       total: uniqueRecipients.length,
       batchSize: BATCH_SIZE,
-      delaySeconds: DELAY_BETWEEN_MESSAGES / 1000,
-      warning: uniqueRecipients.length > MAX_RECIPIENTS_WARNING
-        ? `Envio grande (${uniqueRecipients.length} destinatários). Risco de bloqueio do WhatsApp.`
-        : null,
+      delaySeconds: `${DELAY_MIN/1000}-${DELAY_MAX/1000}`,
+      batchPauseMinutes: `${BATCH_PAUSE_MIN/60000}-${BATCH_PAUSE_MAX/60000}`,
+      warning: warningMessage,
+      safetyInfo: `Delays aleatórios (${DELAY_MIN/1000}-${DELAY_MAX/1000}s) + pausas entre lotes (${BATCH_PAUSE_MIN/60000}-${BATCH_PAUSE_MAX/60000}min) para simular comportamento humano.`,
     });
 
     const results = [];
@@ -894,23 +918,26 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
         }
       }
 
-      // Delay logic
+      // Delay logic with random variation to simulate human behavior
       if (i < uniqueRecipients.length - 1) {
         if (positionInBatch === BATCH_SIZE) {
-          console.log(`  ⏸️  Batch ${batchNumber} complete. Waiting ${DELAY_BETWEEN_BATCHES/1000}s...`);
+          const batchPause = getRandomDelay(BATCH_PAUSE_MIN, BATCH_PAUSE_MAX);
+          const pauseMinutes = Math.round(batchPause / 60000 * 10) / 10;
+          console.log(`  ⏸️  Batch ${batchNumber} complete. Waiting ${pauseMinutes} minutes...`);
 
           sendProgress({
             type: 'batch_pause',
             batch: batchNumber,
-            pauseSeconds: DELAY_BETWEEN_BATCHES / 1000,
+            pauseSeconds: Math.round(batchPause / 1000),
             sent,
             failed,
-            message: `Lote ${batchNumber} completo. Aguardando ${DELAY_BETWEEN_BATCHES/1000}s antes do próximo lote...`,
+            message: `Lote ${batchNumber} completo. Aguardando ${pauseMinutes} minutos antes do próximo lote (proteção anti-spam)...`,
           });
 
-          await sleep(DELAY_BETWEEN_BATCHES);
+          await sleep(batchPause);
         } else {
-          await sleep(DELAY_BETWEEN_MESSAGES);
+          const messageDelay = getRandomDelay(DELAY_MIN, DELAY_MAX);
+          await sleep(messageDelay);
         }
       }
     }
