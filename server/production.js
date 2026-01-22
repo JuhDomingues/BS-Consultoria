@@ -787,7 +787,7 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
     const BATCH_PAUSE_MIN = 180000; // Minimum 3 minutes between batches
     const BATCH_PAUSE_MAX = 300000; // Maximum 5 minutes between batches
     const DAILY_LIMIT_WARNING = 100; // Strong warning above this
-    const DAILY_LIMIT_MAX = 150; // Maximum recommended per day
+    const DAILY_LIMIT_MAX = 200; // Maximum recommended per day
     const MAX_RECIPIENTS_WARNING = 30; // Warn if more than this
 
     // Helper function for random delay (simulates human behavior)
