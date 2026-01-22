@@ -222,7 +222,13 @@ const Admin = () => {
             name: item.Nome || null,
             email: item.Email || null,
             score: score,
-            quality: item.Qualidade || (score >= 70 ? 'hot' : score >= 40 ? 'warm' : 'cold'),
+            quality: (() => {
+              const q = item.Qualidade?.toLowerCase();
+              if (q === 'quente' || q === 'hot') return 'hot';
+              if (q === 'morno' || q === 'warm') return 'warm';
+              if (q === 'frio' || q === 'cold') return 'cold';
+              return score >= 50 ? 'hot' : score >= 25 ? 'warm' : 'cold';
+            })(),
             indicators: indicators,
             lastEvaluated: item.UltimaAtualizacao || new Date().toISOString(),
             totalMessages: parseInt(item.TotalMensagens) || 0,
