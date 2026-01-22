@@ -618,14 +618,25 @@ app.patch('/api/baserow/leads/phone/:phoneNumber', async (req, res) => {
       updateData.Observacoes = observations;
     }
     if (quality !== undefined && quality !== null) {
-      updateData.Qualidade = quality;
+      // Map quality to Portuguese for consistency with lead quality script
+      const qualityMap = {
+        'hot': 'Quente',
+        'warm': 'Morno',
+        'cold': 'Frio',
+        // Also accept Portuguese values directly
+        'quente': 'Quente',
+        'morno': 'Morno',
+        'frio': 'Frio',
+      };
+      updateData.Qualidade = qualityMap[quality.toLowerCase()] || quality;
     }
     if (tags !== undefined && tags !== null) {
       // Convert array to comma-separated string for Baserow
-      const tagsString = Array.isArray(tags) ? tags.join(', ') : tags;
-      // Only add if not empty
-      if (tagsString && tagsString.trim() !== '') {
-        updateData.Tags = tagsString;
+      // Allow empty string to clear all tags
+      if (Array.isArray(tags)) {
+        updateData.Tags = tags.length > 0 ? tags.join(', ') : '';
+      } else {
+        updateData.Tags = tags || '';
       }
     }
 
