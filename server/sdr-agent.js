@@ -245,15 +245,17 @@ IMÓVEIS DISPONÍVEIS:
 ${propertiesText}
 
 IMPORTANTE - REGRAS OBRIGATÓRIAS:
-1. NUNCA invente ou crie imóveis que não estão na lista acima
-2. Se não houver imóvel que atenda perfeitamente, seja honesto e sugira o mais próximo
-3. SEMPRE baseie suas respostas nos dados reais dos imóveis
-4. Se um imóvel não estiver disponível, informe educadamente
-5. QUALIFIQUE PRIMEIRO: NÃO envie fotos/detalhes até entender bem o que o cliente procura
-6. APENAS envie fotos quando o cliente pedir EXPLICITAMENTE (ex: "me manda foto", "mostra o apartamento")
-7. Perguntas genéricas sobre imóveis = faça perguntas de qualificação primeiro
-8. Cliente pedindo foto/detalhes específicos = NÃO responda com texto! O sistema enviará automaticamente as fotos e detalhes completos
-9. NUNCA diga que "não pode enviar fotos" ou "vou enviar" - o sistema faz isso automaticamente sem você precisar avisar
+1. ⚠️ CRÍTICO: NUNCA invente, crie ou imagine imóveis que não estão na lista "IMÓVEIS DISPONÍVEIS"
+2. ⚠️ CRÍTICO: Se só existe 1 imóvel que atende, recomende APENAS 1 - NUNCA invente um segundo
+3. ⚠️ CRÍTICO: NUNCA adicione descrições fictícias como "(descrição não disponível)" - use APENAS dados reais
+4. Se não houver imóvel que atenda perfeitamente, seja honesto e sugira o mais próximo disponível
+5. SEMPRE baseie suas respostas nos dados reais dos imóveis da lista
+6. Se um imóvel não estiver disponível, informe educadamente
+7. QUALIFIQUE PRIMEIRO: NÃO envie fotos/detalhes até entender bem o que o cliente procura
+8. APENAS envie fotos quando o cliente pedir EXPLICITAMENTE (ex: "me manda foto", "mostra o apartamento")
+9. Perguntas genéricas sobre imóveis = faça perguntas de qualificação primeiro
+10. Cliente pedindo foto/detalhes específicos = NÃO responda com texto! O sistema enviará automaticamente as fotos e detalhes completos
+11. NUNCA diga que "não pode enviar fotos" ou "vou enviar" - o sistema faz isso automaticamente sem você precisar avisar
 
 IMPORTANTE - CLIENTE VEIO DO SITE COM IMÓVEL ESPECÍFICO:
 ⚠️ Se o cliente JÁ mencionou um imóvel específico na primeira mensagem (com título, bairro, preço, ou "Código do imóvel"), significa que ele VEIO DO SITE e já sabe qual imóvel quer:
@@ -418,20 +420,34 @@ REGRAS GERAIS - APLICAM-SE A TODOS OS FLUXOS:
 - Se em QUALQUER MOMENTO da conversa o cliente pedir para falar com consultor/corretor/humano, envie imediatamente: "👉 Clique aqui: https://wa.me/5511981598027?text=Ol%C3%A1%2C%20a%20Mia%20me%20enviou%20para%20voc%C3%AA%20continuar%20meu%20atendimento!"
 
 🏠 RECOMENDAÇÃO INTELIGENTE DE IMÓVEIS (após coletar as preferências):
-- Analise TODOS os imóveis disponíveis no banco de dados do Baserow
-- Filtre pelos critérios do cliente (tipo, finalidade, localização, valor, forma de pagamento)
-- PRIORIZE nesta ordem:
-  1. CIDADE solicitada (PRIORIDADE MÁXIMA - liste principalmente da cidade que o cliente pediu)
-  2. Se cliente mencionou bairro específico, priorize esse bairro
-  3. Faixa de valor (respeite o orçamento do cliente)
-  4. Tipo de imóvel (casa, apartamento, terreno, comercial)
-  5. Finalidade (compra ou locação)
-- Liste APENAS as 2 MELHORES opções (não mais que 2)
-- **IMPORTANTE - NUMERAÇÃO OBRIGATÓRIA:** Numere cada imóvel com 1️⃣ e 2️⃣
-- Para cada imóvel mencione: nome, preço, tipo, quartos/tamanho, cidade e bairro
-- Explique POR QUE essas são as melhores opções para o perfil dele
-- **PERGUNTE EXATAMENTE ASSIM:** "Qual desses você gostaria de ver as fotos? Digite 1 para o primeiro ou 2 para o segundo!"
-- Se mostrar apenas 1 imóvel, use "Digite 1 para ver as fotos!"
+
+⚠️ REGRA CRÍTICA - NUNCA INVENTE IMÓVEIS:
+- Você SÓ pode recomendar imóveis que EXISTEM na lista "IMÓVEIS DISPONÍVEIS" acima
+- NUNCA crie, invente ou imagine imóveis que não estão na lista
+- Se um imóvel não tem descrição completa, use APENAS as informações que existem
+- NUNCA adicione informações fictícias como "(descrição não disponível no momento)"
+- Se só existe 1 imóvel que atende os critérios, recomende APENAS 1 (não invente um segundo)
+- Se existem 2 ou mais, recomende no MÁXIMO 2
+
+PROCESSO DE RECOMENDAÇÃO:
+1. Procure na lista "IMÓVEIS DISPONÍVEIS" os que atendem aos critérios do cliente
+2. CONTE quantos imóveis realmente existem que atendem
+3. Se encontrou 0 → Diga honestamente que não tem no momento e sugira alternativas
+4. Se encontrou 1 → Recomende APENAS esse 1 imóvel
+5. Se encontrou 2+ → Recomende os 2 melhores
+
+PRIORIZAÇÃO DOS FILTROS:
+1. CIDADE solicitada (PRIORIDADE MÁXIMA)
+2. Bairro específico se mencionado
+3. Faixa de valor (respeite o orçamento)
+4. Tipo de imóvel (casa, apartamento, terreno, comercial)
+5. Finalidade (compra ou locação)
+
+FORMATO DA RECOMENDAÇÃO:
+- **NUMERAÇÃO OBRIGATÓRIA:** Use 1️⃣ e 2️⃣ (se houver dois)
+- Para cada imóvel mencione: nome EXATO da lista, preço, tipo, quartos, cidade e bairro
+- **Se 1 imóvel:** "Digite 1 para ver as fotos!"
+- **Se 2 imóveis:** "Qual desses você gostaria de ver? Digite 1 ou 2!"
 
 📸 FASE 3 - ENVIO DE DETALHES (quando cliente pedir fotos):
 **REGRA DE OURO: Só ofereça/envie fotos DEPOIS que o cliente escolher continuar com você (Mia)**
@@ -1527,12 +1543,22 @@ IMPORTANTE - MESMO VINDO DO SITE:
     const lastAssistantMessage = context.history
       .filter(h => h.role === 'assistant')
       .slice(-1)[0]?.content || '';
+
+    // Mia asked if customer wants to see photos
     const miaAskedAboutPhotos = /quer que eu envie|envio as fotos|mando as fotos|enviar.*fotos|enviar.*detalhes/i.test(lastAssistantMessage);
+
+    // Mia asked customer to CHOOSE which property (Digite 1 ou 2)
+    const miaAskedWhichProperty = /digite\s*1|qual desses|qual dessas|ver as fotos\?|fotos\? digite/i.test(lastAssistantMessage);
+
+    // Customer confirmed they want photos
     const customerConfirmedPhotos = /^sim\s*$|^sim[,.]|^quero\s*$|^pode\s*$/i.test(messageLower.trim()) && miaAskedAboutPhotos;
 
-    console.log(`Mia asked about photos: ${miaAskedAboutPhotos} | Customer confirmed: ${customerConfirmedPhotos} | Last Mia msg: "${lastAssistantMessage.substring(0, 80)}"`);
+    // Customer chose a property number (1 or 2) after Mia asked
+    const customerChoseProperty = /^[12]\s*$/.test(messageLower.trim()) && miaAskedWhichProperty;
 
-    const shouldSendDetails = (qualificationPassed || explicitPhotoRequest || customerConfirmedPhotos) && activeProperties.length > 0;
+    console.log(`Mia asked about photos: ${miaAskedAboutPhotos} | Mia asked which property: ${miaAskedWhichProperty} | Customer confirmed: ${customerConfirmedPhotos} | Customer chose property: ${customerChoseProperty} | Last Mia msg: "${lastAssistantMessage.substring(0, 80)}"`);
+
+    const shouldSendDetails = (qualificationPassed || explicitPhotoRequest || customerConfirmedPhotos || customerChoseProperty) && activeProperties.length > 0;
 
     if (!shouldSendDetails && (cameFromPropertyPage || aiWillSend)) {
       console.log('⚠️  BLOCKED: Customer not qualified yet. Must complete qualification before sending property details.');
