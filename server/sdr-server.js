@@ -52,6 +52,9 @@ app.all('/webhook/debug/:event', (req, res) => {
  * Evolution API will POST to this endpoint when a message is received
  */
 app.post('/webhook/whatsapp', async (req, res) => {
+  // Respond immediately to prevent Evolution API from blocking
+  res.status(200).json({ success: true });
+
   try {
     console.log('Received webhook:', JSON.stringify(req.body, null, 2));
 
@@ -68,7 +71,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
       if (message) {
         console.log(`Processing message from ${phoneNumber}: ${message}`);
 
-        // Process message with AI
+        // Process message with AI (now runs after response was sent)
         const result = await processMessage(phoneNumber, message);
 
         // Check if customer wants to schedule a visit
@@ -149,13 +152,9 @@ app.post('/webhook/whatsapp', async (req, res) => {
         }
       }
     }
-
-    // Always respond with 200 to acknowledge receipt
-    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    // Still return 200 to prevent Evolution API from retrying
-    res.status(200).json({ success: false, error: error.message });
+    // Response already sent, just log the error
   }
 });
 
